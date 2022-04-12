@@ -37,11 +37,19 @@ lemma fold_assn_emp_removeAll: "fold_assn xs = fold_assn (removeAll emp xs)"
   apply(induction xs)
   by auto  
 
-lemma fold_assn_map: "member xs x \<Longrightarrow> fold_assn (remove1 (f x) (map f xs)) = fold_assn (map f (remove1 x xs))"
-  apply(induction xs)
-  apply auto
-  by (metis fold_assn_remove1 image_eqI list.set_map)
 
+lemma fold_assn_remove1_map: "member xs x \<Longrightarrow> fold_assn (remove1 (f x) (map f xs)) = fold_assn (map f (remove1 x xs))"
+proof(induction xs)
+  case Nil
+  then show ?case 
+    by simp
+next
+  case (Cons a xs)
+  then show ?case
+    using fold_assn_remove1[of "f a" "map f xs"] image_iff
+    by fastforce
+qed
+ 
 datatype 'a::"countable" cell = Array "'a array" | Upd nat "'a" "'a cell ref"
 
 derive countable cell
@@ -82,7 +90,7 @@ proof-
     unfolding master_assn_def
     using 
         fold_assn_remove1
-        fold_assn_map[of "(p, c')" xs "(\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"]
+        fold_assn_remove1_map[of "(p, c')" xs "(\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"]
     by auto
 qed 
 
@@ -216,6 +224,98 @@ partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow>
   }"
 declare update.simps[code]
 
+find_theorems "<_> Array.upd _ _ _ <_>"
+
+find_consts "(_ \<Rightarrow> _ list) \<Rightarrow> _ list \<Rightarrow> _ list"
+
+(* WRONG! Old needs old value!*)
+abbreviation update' where
+  "update' new_p old_p i old_v \<equiv>
+    List.maps (
+      \<lambda>(p, c).
+        if old_p = p 
+        then [(p, Upd' i old_v new_p), (new_p, c)]
+        else [(p, c)]
+      )"
+
+lemma update: "
+   <master_assn t * \<up>(la_rel' t n xs a \<and> i < length xs)> 
+      update a i x
+   <\<lambda>r. let new_t = update' r a i (xs!i) t
+        in master_assn new_t * \<up>(la_rel' new_t n (xs[i := x]) r \<and> la_rel' new_t (Suc n) xs a)
+   >\<^sub>t"
+proof(induction n)
+  case 0
+  then show ?case
+    using lookup[of t 0 xs a i] 
+    apply(sep_auto simp: Let_def update.simps)
+     apply(subst open_master_assn, assumption)
+     apply sep_auto
+    (* Why "<true * true>" ? *)
+    subgoal for xa xaa
+      apply(cases xaa)
+       apply sep_auto
+     
+      sorry
+    sorry
+next
+  case (Suc n)
+  then show ?case 
+     using lookup[of t "Suc n" xs a i]   
+    apply(sep_auto simp: update.simps)
+       apply(subst open_master_assn, assumption)
+     apply sep_auto
+    sorry
+qed
+(*proof(induction n)
+  case 0
+  
+
+  then show ?case
+     using lookup[of t 0 xs a i]   
+    apply(sep_auto simp: update.simps)
+      apply(subst open_master_assn, assumption)
+      apply(sep_auto)
+     sorry
+next
+  case (Suc n)
+  then show ?case
+    using lookup[of t "Suc n" xs a i]   
+    apply(sep_auto simp: update.simps)
+      apply(subst open_master_assn, assumption)
+      apply(sep_auto)
+     apply(subst open_master_assn, assumption)
+    apply sep_auto
+    subgoal for ia xa a' xs' xaa
+      apply sep_auto
+      using close_master_assn_upd'[of a ia xa a' t] 
+        apply sep_auto
+      using Suc.IH
+        apply sep_auto
+     sorry
+    sorry
+    (*subgoal for  ia xa a' xs' 
+    proof(induction xaa)
+      case (Array x)
+      then show ?case by auto
+    next
+      case (Upd x1a x2 x3)
+      then show ?case 
+        using close_master_assn_upd'[of a ia xa a' t]
+        apply sep_auto
+        using close_master_assn_upd'[of a ia xa a' t]
+            apply sep_auto
+        thm Suc
+        using Suc.IH apply sep_auto
+        sorry
+    qed*)
+qed*)
+
+  (*using lookup[of t n xs a i]
+  apply(sep_auto simp: update.simps)
+  apply(subst open_master_assn, assumption)*)
+
+ 
 definition create_la where
   "create_la n x = do {
     a \<leftarrow> Array.new n x;
