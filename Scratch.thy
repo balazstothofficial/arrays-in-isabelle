@@ -13,11 +13,46 @@ find_consts "_ set" name: fold
 find_theorems "Finite_Set.fold _ _ (insert _ _)"
 find_theorems "comp_fun_commute_on" "Finite_Set.fold"
 
+
 interpretation mf: comp_fun_commute_on UNIV "((*)::_::comm_monoid_mult \<Rightarrow> _)"
   apply(unfold_locales)
   by(auto simp: algebra_simps)
-  
-definition fold_assn where
+
+
+definition fold_assn :: "assn list \<Rightarrow> assn" where
+  "fold_assn assns = foldr (*) assns emp"
+
+lemma fold_assn_emp[simp]: "fold_assn [] = emp"
+  unfolding fold_assn_def
+  by simp
+
+lemma fold_assn_cons[simp]: "fold_assn (x#xs) = x * fold_assn xs"
+  unfolding fold_assn_def
+  by(simp_all)
+
+lemma fold_assn_app [simp]: "fold_assn (xs@ys) = fold_assn xs * fold_assn ys"
+  apply(induction xs)
+  by(auto simp: algebra_simps)
+
+lemma fold_assn_remove1: "List.member xs x \<Longrightarrow> fold_assn xs = x * fold_assn (remove1 x xs)"
+  unfolding member_def
+  apply(induction xs)
+  by(auto simp: algebra_simps)
+
+lemma fold_assn_false [simp]: "List.member xs false \<Longrightarrow> fold_assn xs = false"
+  using fold_assn_remove1
+  by auto
+
+lemma fold_assn_emp_remove1: "fold_assn xs = fold_assn (remove1 emp xs)"
+  apply(induction xs)
+  by auto
+
+lemma fold_assn_emp_removeAll: "fold_assn xs = fold_assn (removeAll emp xs)"
+  apply(induction xs)
+  by auto  
+
+(*
+definition fold_assn :: "assn set \<Rightarrow> assn" where
   "fold_assn assns = Finite_Set.fold (*) emp assns * \<up>(finite assns)"
 
 lemma fold_assn_emp [simp]: "fold_assn {} = emp"
@@ -35,7 +70,7 @@ lemma fold_assn_emp': "emp \<in> S \<Longrightarrow> fold_assn S = fold_assn (S 
   by(auto simp: mf.fold_rec)
 
 thm  mf.fold_insert_remove
-
+*)
 lemma fold_assn_cons [simp]: "fold_assn (insert x xs) = x * fold_assn (xs - {x})"
   unfolding fold_assn_def
   apply(cases "finite xs")
@@ -43,6 +78,7 @@ lemma fold_assn_cons [simp]: "fold_assn (insert x xs) = x * fold_assn (xs - {x})
 
 lemma fold_assn_in: "x \<in> xs \<Longrightarrow> fold_assn xs = x * fold_assn (xs - {x})"
   by (metis fold_assn_cons insert_absorb)
+*)
 
 (*lemma fold_assn_app: "fold_assn (xs \<union> ys) = fold_assn xs * fold_assn ys"
   apply(induction xs)
@@ -59,157 +95,172 @@ type_synonym 'a la = "'a cell ref"
 
 datatype 'a::"countable" cell' = Array' "'a list" | Upd' nat "'a" "'a cell ref"
 
+no_notation Ref.update ("_ := _" 62)
+notation Ref.update ("_ :=\<^sub>R _" 62)
+
 fun cell_assn where
   "cell_assn (Array' xs) (Array a) = a \<mapsto>\<^sub>a xs"
 | "cell_assn (Upd' i' val' p') (Upd i val p) = \<up>(i = i' \<and> val = val' \<and> p = p')"
 | "cell_assn _ _ = false"
 
-definition master_assn :: "('a::heap cell' \<times> 'a cell ref) set \<Rightarrow> assn" where
-  "master_assn C = fold_assn ((\<lambda>(c', p). \<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) ` C)"
-
-find_theorems "_ ` (_ - _)"
-find_theorems "(\<exists>\<^sub>A _. _) = (\<exists>\<^sub>A _. _)"
-find_consts name:precise
-
-(* 
-lemma fold_assn_in: "x \<in> xs \<Longrightarrow> fold_assn xs = x * fold_assn (xs - {x})"
-  by (metis fold_assn_cons insert_absorb)
-*)
-
-lemma sth: "a \<noteq> false \<Longrightarrow> true * a \<noteq> false"
-  using ent_false ent_iffI ent_refl_true star_aci(2)
-  by (metis ent_false ent_iffI ent_refl_true star_aci(2))
+(* remove1 *)
 
 
-lemma testst: "\<lbrakk>a \<mapsto>\<^sub>a xs = true; a \<mapsto>\<^sub>a ys = true\<rbrakk> \<Longrightarrow> xs = ys"
-  by (metis assn_basic_inequalities(5) merge_true_star snga_same_false)
+definition master_assn :: "('a cell ref * 'a::heap cell') list \<Rightarrow> assn" where
+  "master_assn C = fold_assn (map (\<lambda>(p, c'). \<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) C)"
 
-lemma image_iff_2: "z \<notin> f ` A \<longleftrightarrow> \<not>(\<exists>x\<in>A. z = f x)"
+
+(*lemma test: "(p, c) \<in> Map.graph C \<Longrightarrow> Map.graph C - { (p, c) } =  Map.graph (C (p := None))"
+  by (metis (mono_tags, lifting) Diff_insert_absorb fun_upd_same fun_upd_triv graph_map_upd in_graphD option.simps(3))
+
+lemma test_2: "\<lbrakk>
+    inj_on f (Map.graph C); (k, v) \<in> Map.graph C; 
+    (k', v') \<in> Map.graph (C(k := None)); 
+    f (k', v') = f (k, v)
+\<rbrakk> \<Longrightarrow> False"
+  by (metis Diff_iff inj_on_contraD singletonI test)
+
+lemma test_3: "\<lbrakk>inj_on f (Map.graph C); (k, v) \<in> Map.graph C\<rbrakk>
+   \<Longrightarrow> f ` Map.graph C - { f (k, v) } = f ` Map.graph (C(k := None))"
+  apply(auto)
+  apply (metis image_eqI insert_Diff insert_iff test)
+  apply (metis DiffE rev_image_eqI test)
+  by (meson test_2)
+
+lemma test_5_1: "(cell_assn x z = cell_assn y z \<Longrightarrow> x = y) \<Longrightarrow> (cell_assn x = cell_assn y \<Longrightarrow> x = y)"
+  by auto
+
+lemma test21: "\<lbrakk>h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c; h \<Turnstile> aa \<mapsto>\<^sub>r ca * cell_assn ba ca\<rbrakk> \<Longrightarrow> a = aa"
+  unfolding sngr_assn_def
+  apply(induction b c rule: cell_assn.induct)
+     apply auto
+   apply(induction ba ca rule: cell_assn.induct)
+      apply auto
+    apply(induction a; induction aa)
+    apply auto
+  unfolding snga_assn_def
+    apply(induction h)
+  apply auto   
+  sorry
+
+lemma test20: "(\<exists>c. h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c) = (\<exists>c. h \<Turnstile> aa \<mapsto>\<^sub>r c * cell_assn ba c)
+   \<Longrightarrow>  a = aa"
+  apply auto
+  sorry
+
+lemma test19: "(\<lambda>h. \<exists>c. h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c) = (\<lambda>h. \<exists>c. h \<Turnstile> aa \<mapsto>\<^sub>r c * cell_assn ba c)
+   \<Longrightarrow> (\<exists>c. h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c) = ( \<exists>c. h \<Turnstile> aa \<mapsto>\<^sub>r c * cell_assn ba c)"
+  by meson
+
+lemma test17: "
+   Abs_assn (\<lambda>h. \<exists>c. h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c) = Abs_assn (\<lambda>h. \<exists>c. h \<Turnstile> aa \<mapsto>\<^sub>r c * cell_assn ba c) \<Longrightarrow> (\<lambda>h. \<exists>c. h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c) = (\<lambda>h. \<exists>c. h \<Turnstile> aa \<mapsto>\<^sub>r c * cell_assn ba c)"
+  by (smt (verit, ccfv_threshold) Abs_assn_inverse mem_Collect_eq mod_relH models_in_range proper_def)
+
+lemma test18: "(\<lambda>h. \<exists>c. h \<Turnstile> a \<mapsto>\<^sub>r c * cell_assn b c) = (\<lambda>h. \<exists>c. h \<Turnstile> aa \<mapsto>\<^sub>r c * cell_assn ba c) \<Longrightarrow> a = aa" 
+  sorry
+
+lemma test15:  "(\<exists>\<^sub>Ac. a \<mapsto>\<^sub>r c * cell_assn b c) = (\<exists>\<^sub>Ac. aa \<mapsto>\<^sub>r c * cell_assn ba c) \<Longrightarrow> a = aa"
+  using test18[of a b aa ba]
+  unfolding ex_assn_def
+  using test17 by blast
+
+lemma test14: "inj (\<lambda>x. case x of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"
+  apply(auto simp: inj_def test15 exI)
+  sorry
+
+lemma test_7: "(p, c') \<in> Map.graph C \<Longrightarrow>
+    Finite_Set.fold g acc (f ` Map.graph C)  =
+    g (f (p, c')) (Finite_Set.fold g acc (f ` Map.graph (C(p := None))))"
+  apply auto
+ sorry
+
+lemma test_6: "(p, c') \<in> Map.graph C \<Longrightarrow>
+    fold_assn (f ` Map.graph C) = (f (p, c') * fold_assn (f ` Map.graph (C(p := None))))" 
+  unfolding fold_assn_def
+  apply auto
+  sorry
+
+lemma "a \<mapsto>\<^sub>a xs = false \<Longrightarrow> False"
+  unfolding snga_assn_def
+  apply(induction a)
+  sorry
+
+lemma test_5_2: "cell_assn x z = cell_assn y z \<Longrightarrow> x = y"
+  apply(induction x z rule: cell_assn.induct; induction y z rule: cell_assn.induct)
+  apply auto
+  sorry
+
+lemma test_5: "inj cell_assn" 
+  unfolding inj_def
+  apply auto
+  subgoal for x y
+    apply(induction x; induction y)
+       apply auto
+    sorry
+  sorry
+  
+
+lemma test_4_3: "h \<Turnstile> p \<mapsto>\<^sub>r a * F \<and>\<^sub>A p \<mapsto>\<^sub>r a' * F' \<longrightarrow> a = a'"
+  using sngr_prec
+  unfolding precise_def
   by blast
 
-lemma open_master_assn: "(c', p) \<in> C \<Longrightarrow> master_assn C = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (C - {(c', p)})"
-  unfolding master_assn_def
-proof(induction "(\<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) = false")
-  case True
-  then have "false \<in> ((\<lambda>a. case a of (c', p) \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) ` C)"
-    using image_iff by fastforce
-
-  with True show ?case 
-    by (simp add: fold_assn_false)
-next
-  case False
-  then have "false \<notin> ((\<lambda>a. case a of (c', p) \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) ` C)"
-    sorry
-
-  with False show ?case
-  apply sep_auto
-  apply(subst fold_assn_in[where x = "\<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c"])
-  apply(auto)[]
-  apply(subst image_set_diff)
+lemma test_4_2: "precise (\<lambda>c' p. \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c)"
+  unfolding precise_def
   apply auto
-  apply rule
+  subgoal for a b p F Fa x xa aa xb
+    using test_4_3[of p xa F x Fa "(a, b)"]
     apply auto
     sorry
-qed
+  sorry
+  
 
- (* apply sep_auto
-  apply(subst fold_assn_in[where x = "\<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c"])
-  apply(auto)[]
-  apply(subst image_set_diff)
-  apply auto
-  apply rule
-  apply auto
-   sorry*)
+lemma test_4_1: "\<lbrakk>(\<exists>\<^sub>Ac. a \<mapsto>\<^sub>r c * cell_assn b c) = (\<exists>\<^sub>Ac. aa \<mapsto>\<^sub>r c * cell_assn ba c)\<rbrakk> \<Longrightarrow> a = aa"
+  using sngr_prec
+  unfolding precise_def
+  apply sep_auto
+  sorry
 
-no_notation Ref.update ("_ := _" 62)
-notation Ref.update ("_ :=\<^sub>R _" 62)
+lemma test_4: "inj_on (\<lambda>x. case x of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) (Map.graph C)"
+  unfolding inj_on_def
+  apply auto
+  using test_4_1
+  sorry
+*)
+
+
+lemma open_master_assn': "master_assn ((p,c')#xs) = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn xs"
+  unfolding master_assn_def
+  by auto
+
+
+lemma open_master_assn: "List.member xs  (p, c') \<Longrightarrow> master_assn xs = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (p, c') xs)"
+  unfolding master_assn_def member_def
+  apply auto
+  sledgehammer
+  sorry
+
 
 fun la_rel' where
-  "la_rel' C 0 xs a \<longleftrightarrow> (Array' xs, a) \<in> C"
-| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. (Upd' i x a', a) \<in> C \<and> la_rel' C n xs' a' \<and> xs = xs'[i:=x])"
+  "la_rel' C 0 xs a \<longleftrightarrow> List.member C (a, Array' xs)"
+| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. List.member C (a, Upd' i x a') \<and> la_rel' C n xs' a' \<and> xs = xs'[i:=x])"
   
 definition la_rel where
   "la_rel C xs a \<equiv> \<exists>n. la_rel' C n xs a"
-
-(*datatype 'a la_node = LA_node nat 'a "'a la_node list" "'a cell ref"
-datatype 'a la_tree = LA_tree "'a list" "'a la_node list" "'a cell ref"
-
-
-
-fun la_node_assn where
-   "la_node_assn prev (LA_node i a succs p) = 
-      (p \<mapsto>\<^sub>r Upd i a prev) * (fold_assn (map (la_node_assn p) succs))"
-
-fun la_tree_assn where
-  "la_tree_assn (LA_tree vals succs p) = 
-     (\<exists>\<^sub>A ap. (p \<mapsto>\<^sub>r Array ap) * (ap  \<mapsto>\<^sub>a vals) * (fold_assn (map (la_node_assn p) succs)))"*)
-
-
-
-(*fun node_to_map :: "'a list \<Rightarrow> 'a la_node \<Rightarrow> ('a cell ref \<rightharpoonup> 'a list)" where
-  "node_to_map vals (LA_node i a succs p) = (
-    let vals' = vals[i:= a] 
-    in [p \<mapsto> vals'] ++ fold (++) (map (node_to_map vals') succs) Map.empty
-  )"
-
-fun node_to_map' :: "'a list \<Rightarrow> 'a la_node \<Rightarrow> ('a cell ref * 'a list) list" where
-  "node_to_map' vals (LA_node i a succs p) = (
-    let vals' = vals[i:= a] 
-    in (p, vals') # concat (map (node_to_map' vals') succs)
-  )"
-
-fun refs_node where 
-  "refs_node (LA_node i a succs p) = p # concat (map refs_node succs)"
-
-definition invar_node :: "'a la_node \<Rightarrow> bool" where
-  "invar_node node = distinct (refs_node node)"
-
-fun tree_to_map' :: "'a la_tree \<Rightarrow> ('a cell ref \<times> 'a list) list" where
-  "tree_to_map' (LA_tree vals succs p) = (p, vals) # concat (map (node_to_map' vals) succs)"
-
-fun refs_tree where
-  "refs_tree (LA_tree vals succs p) = p # concat (map refs_node succs)"
-
-definition invar_tree :: "'a la_tree \<Rightarrow> bool" where
-  "invar_tree tree = distinct (refs_tree tree)"
-
-lemma "map fst (node_to_map' xs n) = refs_node n"
-  apply(induction n arbitrary: xs)
-  by(auto simp: Let_def map_concat intro!: arg_cong[where f = concat])
-
-find_theorems "map _ (concat _)"
-thm arg_cong[where f = concat]
-
-lemma node_to_map'_refs: "map fst (node_to_map' xs n) = refs_node n"
-  apply(induction xs n rule: node_to_map'.induct)
-  by(auto simp: Let_def map_concat intro!: arg_cong[where f = concat])
-
-lemma tree_to_map'_refs: "map fst (tree_to_map' t) = refs_tree t"
-  apply(cases t) 
-  by (auto simp: node_to_map'_refs map_concat intro!: arg_cong[where f = concat])
-
-find_consts "(_ * _) list \<Rightarrow> (_ \<Rightarrow> _ option)"
-find_theorems "map_of" "distinct"
-
-lemma "invar_tree t \<Longrightarrow> distinct (map fst (tree_to_map' t))"
-  by (simp add: invar_tree_def tree_to_map'_refs)
-
-definition la_rel :: "'a la_tree \<Rightarrow> 'a list \<Rightarrow> 'a cell ref \<Rightarrow> bool" where
-  "la_rel t xs p \<longleftrightarrow> map_of (tree_to_map' t) p = Some xs"*)
                                
 definition array_to_la :: "('a::heap) array \<Rightarrow> 'a la Heap" where
   "array_to_la a = do {
     ref (Array a)
   }"
 
-find_theorems "_ \<Longrightarrow>\<^sub>A \<exists>\<^sub>A _. _"
-
 lemma array_to_la: "<a \<mapsto>\<^sub>a xs> array_to_la a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(la_rel t xs r)>"
   unfolding array_to_la_def master_assn_def la_rel_def
   apply vcg
   subgoal for r
-    apply(rule ent_ex_postI[where x = "{(Array' xs, r)}"])
-    by(sep_auto simp: exI[where x = "0"] ent_ex_postI[where x = "cell.Array a"])
+    apply(rule ent_ex_postI[where x = "[(r, Array' xs)]"])
+    apply(subst exI[where x = "0"])
+    apply(simp_all add: List.member_def)
+    by(sep_auto simp: ent_ex_postI[where x = "cell.Array a"])
   done
 
 partial_function (heap) lookup :: "('a::heap) la  \<Rightarrow> nat \<Rightarrow> 'a Heap" where
@@ -224,8 +275,6 @@ partial_function (heap) lookup :: "('a::heap) la  \<Rightarrow> nat \<Rightarrow
 declare lookup.simps[code]
 
 
-find_theorems "(=)" "(\<Longrightarrow>\<^sub>A)"
-
 lemma [simp]:"cell_assn (Array' xs) c = (\<exists>\<^sub>Aa. \<up>(c = Array a) * a \<mapsto>\<^sub>a xs)"
   apply(cases c)
    apply(auto)
@@ -236,10 +285,11 @@ lemma [simp]:"cell_assn (Upd' i x p) c = \<up>(c = Upd i x p)"
   apply(cases c)
   by auto
 
-lemma close_master_assn_upd: "a \<mapsto>\<^sub>r Upd i x a' * master_assn (t - {(Upd' i x a', a)}) \<Longrightarrow>\<^sub>A master_assn t"
+
+
+lemma close_master_assn_upd: "a \<mapsto>\<^sub>r Upd i x a' * master_assn (remove1 (a, Upd' i x a') t) \<Longrightarrow>\<^sub>A master_assn t"
   unfolding master_assn_def
-  using fold_assn_in
-  apply(sep_auto simp: )
+  using open_master_assn
   sorry
 
 lemma lookup: "<master_assn t * \<up>(la_rel' t n xs a \<and> i < length xs)> lookup a i <\<lambda>r. master_assn t * \<up>(r = xs!i)>\<^sub>t"
@@ -249,8 +299,8 @@ proof(induction n arbitrary: xs a)
     apply(sep_auto)
     apply(subst lookup.simps)
     apply(subst open_master_assn, assumption)
-    apply sep_auto
-    
+    apply(sep_auto simp: List.member_def)
+    (*apply (rule ent_frame_fwd[OF close_master_assn_upd], frame_inference)*)
      sorry
 next
   case (Suc n)
@@ -259,15 +309,14 @@ next
     apply(subst lookup.simps)
     apply(subst open_master_assn, assumption)
     apply(sep_auto)
-     apply (rule ent_frame_fwd[OF close_master_assn_upd], frame_inference)
+    apply (rule ent_frame_fwd[OF close_master_assn_upd], frame_inference)
     apply sep_auto
     apply(rule cons_pre_rule[OF close_master_assn_upd])
     apply (rule cons_post_rule)
-     thm fi_rule
-      apply (rule fi_rule[OF Suc.IH])
-      apply sep_auto
-     apply sep_auto
-     done
+    apply (rule fi_rule[OF Suc.IH])
+    apply sep_auto
+    apply sep_auto
+    done
 qed
 
 partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a la Heap" where
