@@ -311,16 +311,29 @@ next
     by sep_auto
 qed
 
-lemma ref_lookup: "\<lbrakk>la_rel t xs la\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t >"
+lemma ref_lookup: "\<lbrakk>la_rel t xs la\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t>"
   unfolding la_rel_def
   using ref_lookup'
   by sep_auto
 
+lemma test: "\<lbrakk>i < length xs; la_rel' t n xs la\<rbrakk> \<Longrightarrow> master_assn t * true \<Longrightarrow>\<^sub>A xa \<mapsto>\<^sub>a xs * la \<mapsto>\<^sub>r Array xa"
+proof(induction n)
+  case 0
+  then show ?case
+    apply sep_auto
+    apply(sep_drule r: open_master_assn)
+    apply sep_auto
+     apply(sep_drule r: close_master_assn_upd)
+    sorry
+next
+  case (Suc n)
+  then show ?case sorry
+qed
 
 lemma update_aux: "
   <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
     update_aux la i v
-  <\<lambda>la. master_assn t * \<up>(la_rel t (xs[i := v]) la)>
+  <\<lambda>la. master_assn t * \<up>(la_rel t (xs[i := v]) la \<and> i < length xs)>
 "
   apply(subst update_aux.simps)
   apply sep_auto
@@ -332,16 +345,17 @@ lemma update_aux: "
   thm realize[of t ]
     apply (rule fi_rule[OF realize])
     apply sep_auto+
- 
   thm upd_rule[of i xs _ v]
    apply (rule fi_rule[OF upd_rule[of i xs _ v], of ])
     apply sep_auto
   unfolding la_rel_def
-   apply sep_auto
-  subgoal
+   apply(sep_auto)
+  using test[of i xs t _ la] 
+  subgoal for xa n
+    apply(induction n)
+     apply sep_auto
     sorry
   by sep_auto
-  
 
 
 partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a la Heap" where
@@ -353,7 +367,25 @@ partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow>
   }"
 declare update.simps[code]
 
+
+lemma update: "
+  <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
+    update la i v
+  <\<lambda>la'. master_assn t * \<up>(la_rel t xs la \<and> la_rel t (xs[i := v]) la' \<and> i < length xs)>
+"
+  apply(subst update.simps)
+  apply sep_auto
+   apply(rule fi_rule[OF lookup])
+   apply sep_auto+
+   apply(rule fi_rule[OF update_aux])
+   apply sep_auto+
+   apply(rule fi_rule[OF update_rule])
+  
+  subgoal sorry
+  by sep_auto
+
 find_theorems "<_> Array.upd _ _ _ <_>"
+find_theorems "<_> _ <_>"
 
 find_consts "(_ \<Rightarrow> _ list) \<Rightarrow> _ list \<Rightarrow> _ list"
 
