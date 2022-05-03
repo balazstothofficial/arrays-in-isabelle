@@ -101,7 +101,9 @@ lemma open_master_assn:
 
 fun la_rel' where
   "la_rel' C 0 xs a \<longleftrightarrow> member C (a, Array' xs)"
-| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. member C (a, Upd' i x a') \<and> la_rel' C n xs' a' \<and> xs = xs'[i:=x] \<and> i < length xs')"
+| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. member C (a, Upd' i x a')
+                                           \<and> la_rel' C n xs' a' \<and> xs = xs'[i:=x] 
+                                           \<and> i < length xs')"
   
 definition la_rel where
   "la_rel C xs a \<equiv> \<exists>n. la_rel' C n xs a"
@@ -205,6 +207,7 @@ lemma lookup: "
    apply(rule fi_rule[OF lookup_aux[of t _ xs]])
   by(solve_entails)
 
+(* TODO: use array_copy *)
 partial_function (heap) realize :: "('a::heap) la \<Rightarrow> 'a array Heap" where
   "realize la = do {
     cell \<leftarrow> !la;
@@ -231,10 +234,6 @@ partial_function (heap) update_aux :: "('a::heap) la \<Rightarrow> nat \<Rightar
       array_to_la arr
   }" 
 declare update_aux.simps[code]
-
-abbreviation replace :: "'a \<Rightarrow> 'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
-  "replace x y xs \<equiv> y # remove1 x xs"
-
 
 lemma array_to_la': "
   <a \<mapsto>\<^sub>a xs * master_assn t>
@@ -311,6 +310,21 @@ next
     by sep_auto
 qed
 
+lemma ref_lookup_2: "\<lbrakk>la_rel' t n xs la; 0 < n\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t * \<up>(\<exists>x y z. c = Upd x y z)>"
+proof(induction n)
+  case 0
+  then show ?case
+    by sep_auto
+next
+  case (Suc n)
+  then show ?case 
+    apply sep_auto
+    apply(sep_drule r: open_master_assn)
+    apply sep_auto
+    apply(sep_drule r: close_master_assn_upd)
+    by sep_auto
+qed
+
 lemma ref_lookup: "\<lbrakk>la_rel t xs la\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t>"
   unfolding la_rel_def
   using ref_lookup'
@@ -323,7 +337,7 @@ proof(induction n)
     apply sep_auto
     apply(sep_drule r: open_master_assn)
     apply sep_auto
-     apply(sep_drule r: close_master_assn_upd)
+    (* apply(sep_drule r: close_master_assn_upd)*)
     sorry
 next
   case (Suc n)
@@ -360,10 +374,20 @@ lemma update_aux: "
 
 partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a la Heap" where
   "update la i v = do {
-      old_v \<leftarrow> lookup la i;
-      new_la \<leftarrow> update_aux la i v;
-      la :=\<^sub>R Upd i old_v new_la;
-      return new_la
+      cell  \<leftarrow> !la;
+      case cell of
+        Array arr \<Rightarrow> do {
+          new_la \<leftarrow> ref (Array arr);
+          old_v \<leftarrow> Array.nth arr i;
+          la :=\<^sub>R Upd i old_v new_la;
+          Array.upd i v arr;
+          return new_la
+        }
+      | Upd _ _ _ \<Rightarrow> do {
+          arr \<leftarrow> realize la;
+          Array.upd i v arr;
+          ref (Array arr) 
+        }
   }"
 declare update.simps[code]
 
@@ -371,18 +395,69 @@ declare update.simps[code]
 lemma update: "
   <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
     update la i v
-  <\<lambda>la'. master_assn t * \<up>(la_rel t xs la \<and> la_rel t (xs[i := v]) la' \<and> i < length xs)>
+  <\<lambda>la'. \<exists>\<^sub>At'. master_assn t' * \<up>(la_rel t' (xs[i := v]) la')>\<^sub>t
 "
   apply(subst update.simps)
-  apply sep_auto
-   apply(rule fi_rule[OF lookup])
-   apply sep_auto+
-   apply(rule fi_rule[OF update_aux])
-   apply sep_auto+
-   apply(rule fi_rule[OF update_rule])
-  
-  subgoal sorry
-  by sep_auto
+  unfolding la_rel_def
+  apply clarsimp
+  subgoal for n
+    apply(cases "n = 0"; simp)
+    subgoal
+      apply(sep_drule r: open_master_assn)
+      apply(sep_auto eintros del: exI)
+      subgoal for new_arr new_la
+        apply(rule exI[where x = " (new_la, Array' (xs[i := v]) )
+                                  # (la, Upd' i (xs ! i) new_la) 
+                                  # (remove1 (la, Array' xs) t)"])
+        by(sep_auto simp: open_master_assn_cons intro: exI[where x = 0])
+      done
+    
+    subgoal
+      apply(sep_auto heap: ref_lookup_2)
+      (* TODO: work around *)
+      apply(rule fi_rule[OF realize_aux])
+      apply(sep_auto eintros del: exI)+
+      subgoal for new_arr new_la
+        apply(rule exI[where x = "(new_la, Array' (xs[i := v])) #  t"])
+        by(sep_auto simp: open_master_assn_cons heap: realize_aux intro: exI[where x = 0])
+    done
+  done
+  done
+
+lemma update_2: "
+  <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
+    update la i v
+  <\<lambda>_. \<exists>\<^sub>At'. master_assn t' * \<up>(\<forall>xs' la'. la' \<noteq> la \<and> la_rel t xs' la' \<longrightarrow> la_rel t' xs' la')>\<^sub>t
+"
+  apply(subst update.simps)
+  unfolding la_rel_def
+  apply auto
+  subgoal for n
+    apply(cases "n = 0"; simp)
+    
+    subgoal
+      apply(sep_drule r: open_master_assn)
+      apply(sep_auto eintros del: exI)
+      subgoal for new_arr new_la
+        apply(rule exI[where x = "(la, Upd' i (xs ! i) new_la) # (remove1 (la, Array' xs) t)"]) 
+        apply(sep_auto)
+         defer
+         apply(sep_auto simp: open_master_assn_cons)
+          subgoal for xs' la' h as n'
+            apply(rule exI[where x = foo])
+          
+            sorry
+        done
+      done
+    
+    subgoal
+      apply(sep_auto heap: ref_lookup_2)
+        (* TODO: work around *)
+       apply(rule fi_rule[OF realize_aux])
+       by sep_auto+
+     done
+
+   done
 
 find_theorems "<_> Array.upd _ _ _ <_>"
 find_theorems "<_> _ <_>"
@@ -393,14 +468,13 @@ find_consts "(_ \<Rightarrow> _ list) \<Rightarrow> _ list \<Rightarrow> _ list"
 definition create_la where
   "create_la n x = do {
     a \<leftarrow> Array.new n x;
-    Array.upd 0 (42::nat) a;
     array_to_la a
   }"
 
 definition test where "test = do {
   r \<leftarrow> create_la 3 (5::nat);
-  y \<leftarrow> update r 1 (9::nat);
-  y \<leftarrow> update y 1 (7::nat);
+  y  \<leftarrow> update r 1 (7::nat);
+  y' \<leftarrow> update r 1 (8::nat);
   x \<leftarrow> lookup y 1;
   return x
 }"
