@@ -69,10 +69,8 @@ fun cell_assn where
 | "cell_assn (Upd' i' val' p') (Upd i val p) = \<up>(i = i' \<and> val = val' \<and> p = p')"
 | "cell_assn _ _ = false"
 
-
 definition master_assn :: "('a cell ref * 'a::heap cell') list \<Rightarrow> assn" where
   "master_assn C = fold_assn (map (\<lambda>(p, c'). \<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) C)"
-
 
 lemma open_master_assn_cons: "master_assn ((p,c')#xs) = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn xs"
   unfolding master_assn_def
@@ -101,9 +99,12 @@ lemma open_master_assn:
 
 fun la_rel' where
   "la_rel' C 0 xs a \<longleftrightarrow> member C (a, Array' xs)"
-| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. member C (a, Upd' i x a')
-                                           \<and> la_rel' C n xs' a' \<and> xs = xs'[i:=x] 
-                                           \<and> i < length xs')"
+| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. 
+      member C (a, Upd' i x a')
+    \<and> la_rel' C n xs' a'
+    \<and> xs = xs'[i:=x] 
+    \<and> i < length xs'
+)"
   
 definition la_rel where
   "la_rel C xs a \<equiv> \<exists>n. la_rel' C n xs a"
@@ -158,7 +159,6 @@ lemma close_master_assn_upd': "member t (a, Upd' i x a')
      \<Longrightarrow> a \<mapsto>\<^sub>r Upd i x a' * master_assn (remove1 (a, Upd' i x a') t) = master_assn t"
   using open_master_assn'[of a "Upd' i x a'" t]
   by(auto simp: ent_iffI entails_def)
-
 
 lemma htriple_frame_fwd:
   assumes R: "P \<Longrightarrow>\<^sub>A R"
@@ -224,17 +224,6 @@ partial_function (heap) realize :: "('a::heap) la \<Rightarrow> 'a array Heap" w
   }"
 declare realize.simps[code]
 
-partial_function (heap) update_aux :: "('a::heap) la \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a la Heap" where
-  "update_aux la i v = do {
-      cell \<leftarrow> !la;
-      arr \<leftarrow> case cell of       
-         Array arr \<Rightarrow> return arr
-       | Upd _ _ _ \<Rightarrow> realize la;
-      arr \<leftarrow> Array.upd i v arr;
-      array_to_la arr
-  }" 
-declare update_aux.simps[code]
-
 lemma array_to_la': "
   <a \<mapsto>\<^sub>a xs * master_assn t>
   array_to_la a      
@@ -291,7 +280,7 @@ find_theorems "<_> !_ <_>"
 
 
 (* TODO: Is the c important? *)
-lemma ref_lookup': "\<lbrakk>la_rel' t n xs la\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t>"
+lemma ref_lookup': "la_rel' t n xs la \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t>"
 proof(induction n)
   case 0
   then show ?case
@@ -310,7 +299,8 @@ next
     by sep_auto
 qed
 
-lemma ref_lookup_2: "\<lbrakk>la_rel' t n xs la; 0 < n\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t * \<up>(\<exists>x y z. c = Upd x y z)>"
+lemma ref_lookup_2: "\<lbrakk>la_rel' t n xs la; 0 < n\<rbrakk>
+   \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t * \<up>(\<exists>x y z. c = Upd x y z)>"
 proof(induction n)
   case 0
   then show ?case
@@ -325,52 +315,10 @@ next
     by sep_auto
 qed
 
-lemma ref_lookup: "\<lbrakk>la_rel t xs la\<rbrakk> \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t>"
+lemma ref_lookup: "la_rel t xs la \<Longrightarrow> <master_assn t> !la <\<lambda>c. master_assn t>"
   unfolding la_rel_def
   using ref_lookup'
   by sep_auto
-
-lemma test: "\<lbrakk>i < length xs; la_rel' t n xs la\<rbrakk> \<Longrightarrow> master_assn t * true \<Longrightarrow>\<^sub>A xa \<mapsto>\<^sub>a xs * la \<mapsto>\<^sub>r Array xa"
-proof(induction n)
-  case 0
-  then show ?case
-    apply sep_auto
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    (* apply(sep_drule r: close_master_assn_upd)*)
-    sorry
-next
-  case (Suc n)
-  then show ?case sorry
-qed
-
-lemma update_aux: "
-  <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
-    update_aux la i v
-  <\<lambda>la. master_assn t * \<up>(la_rel t (xs[i := v]) la \<and> i < length xs)>
-"
-  apply(subst update_aux.simps)
-  apply sep_auto
-   apply(rule fi_rule[OF ref_lookup])
-    apply sep_auto+
-  apply(sep_auto split: cell.splits)
-   apply (rule cons_post_rule)
-  
-  thm realize[of t ]
-    apply (rule fi_rule[OF realize])
-    apply sep_auto+
-  thm upd_rule[of i xs _ v]
-   apply (rule fi_rule[OF upd_rule[of i xs _ v], of ])
-    apply sep_auto
-  unfolding la_rel_def
-   apply(sep_auto)
-  using test[of i xs t _ la] 
-  subgoal for xa n
-    apply(induction n)
-     apply sep_auto
-    sorry
-  by sep_auto
-
 
 partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a la Heap" where
   "update la i v = do {
@@ -391,7 +339,6 @@ partial_function (heap) update :: "('a::heap) la \<Rightarrow> nat \<Rightarrow>
   }"
 declare update.simps[code]
 
-
 lemma update: "
   <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
     update la i v
@@ -406,7 +353,7 @@ lemma update: "
       apply(sep_drule r: open_master_assn)
       apply(sep_auto eintros del: exI)
       subgoal for new_arr new_la
-        apply(rule exI[where x = " (new_la, Array' (xs[i := v]) )
+        apply(rule exI[where x = " (new_la, Array' (xs[i := v]))
                                   # (la, Upd' i (xs ! i) new_la) 
                                   # (remove1 (la, Array' xs) t)"])
         by(sep_auto simp: open_master_assn_cons intro: exI[where x = 0])
@@ -424,10 +371,188 @@ lemma update: "
   done
   done
 
+(*lemma test: " (\<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) * (\<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) = false"
+  by sep_auto
+
+lemma open_master_assn_la_rel': "la_rel' t n xs la \<Longrightarrow>
+  \<exists>c'. master_assn t \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Ac . la \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (la, c') t)"
+  apply(cases n)
+  subgoal
+    apply(sep_auto)
+    apply(rule exI[where x = "Array' xs"])
+    using open_master_assn[of la "Array' xs" t] by auto
+  subgoal
+    apply sep_auto
+    subgoal for i x la' xs'
+    apply(rule exI[where x = "Upd' i x la'"])
+    using open_master_assn[of la "Upd' i x la'" t] by auto
+   done
+  done
+
+lemma open_master_assn_la_rel'_2: "la_rel' t n xs la \<Longrightarrow>
+  master_assn t  \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ac' c. la \<mapsto>\<^sub>r c * cell_assn c' c * master_assn (remove1 (la, c') t)"
+  apply(cases n)
+  subgoal
+    apply(auto)
+    apply(rule ent_ex_postI[where x = "Array' xs"])
+    using open_master_assn[of la "Array' xs" t] by auto
+   subgoal
+    apply auto
+    subgoal for i x la' xs'
+    apply(rule ent_ex_postI[where x = "Upd' i x la'"])
+    using open_master_assn[of la "Upd' i x la'" t] by auto
+   done
+  done
+
+find_theorems "(\<exists>\<^sub>A _. _)"
+
+
+lemma open_master_assn_la_rel'_3: "la_rel' t n xs la \<Longrightarrow>
+  master_assn t = (\<exists>\<^sub>Ac' c. la \<mapsto>\<^sub>r c * cell_assn c' c * master_assn (remove1 (la, c') t))"
+  sorry
+
+lemma open_master_assn_la_rel: "la_rel t xs la \<Longrightarrow>
+  \<exists>c'. master_assn t \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Ac. la \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (la, c') t)"
+  unfolding la_rel_def
+  using open_master_assn_la_rel'[of t _ xs la] by auto
+
+lemma open_master_assn_la_rel_2: "la_rel t xs la \<Longrightarrow>
+  master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ac' c. la \<mapsto>\<^sub>r c * cell_assn c' c * master_assn (remove1 (la, c') t)"
+  unfolding la_rel_def
+  using open_master_assn_la_rel'_2[of t _ xs la] by auto
+
+lemma open_master_assn_la_rel_3: "la_rel t xs la \<Longrightarrow>
+  master_assn t = (\<exists>\<^sub>Ac' c. la \<mapsto>\<^sub>r c * cell_assn c' c * master_assn (remove1 (la, c') t))"
+  unfolding la_rel_def
+  using open_master_assn_la_rel'_3[of t _ xs la] by auto
+
+lemma comeon: "\<lbrakk>la_rel t xs la; la_rel t xs' la'; h \<Turnstile> master_assn t; la = la'\<rbrakk> \<Longrightarrow> False"
+  
+  sorry
+
+lemma helper_2:"\<lbrakk>la_rel t xs la; la_rel t xs' la'\<rbrakk> \<Longrightarrow> 
+  master_assn t \<Longrightarrow>\<^sub>A \<up>(la \<noteq> la')"
+  apply auto
+  using open_master_assn_la_rel_2[of t xs la]
+  using open_master_assn_la_rel_2[of t xs' la']
+  apply auto
+  apply(auto simp: open_master_assn_la_rel_3)
+  sorry
+
+lemma helper_1:" \<lbrakk>
+  la_rel' t n' xs' la'; 
+  member t (la, cell);
+  (h, as) \<Turnstile> master_assn (remove1 (la, cell) t)
+\<rbrakk> \<Longrightarrow> la_rel' (remove1 (la, cell) t) n' xs' la'"
+proof(induction n' arbitrary: xs' la' la)
+  case 0
+  then show ?case 
+    by auto
+next
+  case (Suc n')
+  then show ?case
+    apply auto
+    subgoal for i x la'' xs''
+      apply(rule exI[where x = i])
+      apply(rule exI[where x = x])
+      apply(rule exI[where x = la''])
+      apply auto
+      apply(rule exI[where x = xs''])
+      apply auto
+      using Suc.IH[of xs'' la'' la]
+      apply auto
+      sorry
+    done
+qed
+
+lemma helper: "\<lbrakk>
+  i < length xs; 
+  member t (la, Array' xs); 
+  n = 0; 
+  la_rel' t n' xs' la';
+  (h, as) \<Turnstile>
+  new_arr \<mapsto>\<^sub>a xs[i := v] * la \<mapsto>\<^sub>r Upd i (xs ! i) new_la * new_la \<mapsto>\<^sub>r cell.Array new_arr *
+  master_assn (remove1 (la, Array' xs) t)
+\<rbrakk> \<Longrightarrow> \<exists>n. la_rel' ((la, Upd' i (xs ! i) new_la) # remove1 (la, Array' xs) t) n xs' la'"
+  apply(cases "la = la'")
+   defer
+    subgoal
+      apply(rule exI[where x = "n'"])
+      apply(cases "n'")
+      apply sep_auto
+      
+        
+      (*proof(induction "n'" arbitrary: la' xs' t la)
+        case 0
+        then show ?case
+          by sep_auto
+      next
+        case (Suc n')
+        
+        show ?case
+          apply sep_auto
+          apply(rule exI[where x = i])
+          apply(rule exI[where x = "xs ! i"])
+          apply(rule exI[where x = new_la])
+          apply(sep_auto)
+          using Suc apply auto
+          sorry
+      qed*)
+  sorry
+*)
+
+(*lemma la_rel_remove1: "\<lbrakk>la_rel t xs la; la_rel t xs' la'; la \<noteq> la'\<rbrakk>
+    \<Longrightarrow> la_rel (remove1 (la', Array' a) t) xs la"
+  unfolding la_rel_def
+  apply auto
+  subgoal for n n'
+    apply(rule exI[where x = n]) 
+    proof(induction t n xs la rule: la_rel'.induct)
+      case (1 C xs a)
+      then show ?case
+        by auto
+    next
+      case (2 C n xs a)
+      then show ?case
+        apply auto
+        subgoal for i x la' xs'
+          apply(rule exI[where x = i]) 
+          apply(rule exI[where x = x]) 
+          apply(rule exI[where x = la']) 
+          apply auto
+          apply(rule exI[where x = xs']) 
+          apply auto
+          sorry
+        done
+    qed
+  done*)
+
+lemma la_rel_cons: "la_rel t xs la \<Longrightarrow> la_rel ((la', c') # t) xs la"
+  unfolding la_rel_def
+  apply auto
+  subgoal for n
+    apply(rule exI[where x = n]) 
+    proof(induction t n xs la rule: la_rel'.induct)
+      case (1 C xs a)
+      then show ?case
+        by auto
+    next
+      case (2 C n xs a)
+      then show ?case
+        apply auto
+        subgoal for i x la'
+          apply(rule exI[where x = i]) 
+          apply(rule exI[where x = x]) 
+          apply(rule exI[where x = la']) 
+          by auto
+        done
+    qed
+    done
+
 lemma update_2: "
   <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
     update la i v
-  <\<lambda>_. \<exists>\<^sub>At'. master_assn t' * \<up>(\<forall>xs' la'. la' \<noteq> la \<and> la_rel t xs' la' \<longrightarrow> la_rel t' xs' la')>\<^sub>t
+  <\<lambda>_. \<exists>\<^sub>At'. master_assn t' * \<up>(\<forall>xs' la'. la_rel t xs' la' \<longrightarrow> la_rel t' xs' la')>\<^sub>t
 "
   apply(subst update.simps)
   unfolding la_rel_def
@@ -436,20 +561,60 @@ lemma update_2: "
     apply(cases "n = 0"; simp)
     
     subgoal
-      apply(sep_drule r: open_master_assn)
+       apply(sep_drule r: open_master_assn)
       apply(sep_auto eintros del: exI)
       subgoal for new_arr new_la
-        apply(rule exI[where x = "(la, Upd' i (xs ! i) new_la) # (remove1 (la, Array' xs) t)"]) 
-        apply(sep_auto)
+        apply(rule exI[where x = "
+                     (new_la, Array' (xs[i := v]))
+                   #  (la, Upd' i (xs ! i) new_la)
+                   #   (remove1 (la, Array' xs) t)"]) 
+        apply sep_auto
          defer
          apply(sep_auto simp: open_master_assn_cons)
-          subgoal for xs' la' h as n'
-            apply(rule exI[where x = foo])
-          
-            sorry
+        subgoal for xs' la' h n' as
+        proof(induction t n' xs' la' arbitrary: xs' la' rule: la_rel'.induct )
+          case (1 C xs' la')
+          then show ?case 
+          proof(cases "la' = la")
+            case True
+            from 1 have "(h, as) \<Turnstile> master_assn C"
+              apply sep_auto
+              sorry
+
+            from 1 True have "xs' = xs"
+              apply sep_auto
+              sorry
+
+            with True 1 show ?thesis
+              apply sep_auto
+              apply(rule exI[where x = 1])
+              apply sep_auto
+              apply(rule exI[where x = i])
+              apply(rule exI[where x = "xs ! i"])
+              apply(rule exI[where x = new_la])
+              by sep_auto
+          next
+            case False
+            with 1 show ?thesis
+              apply sep_auto
+              apply(rule exI[where x = 0])
+              by sep_auto
+          qed
+        next
+          case (2 C n' xs' la')
+          from 2(5) show ?case 
+            apply sep_auto
+            subgoal for i v la'' xs''
+              using 2(1)[of xs'' la''] 2(2) 2(3) 2(4) 2(6)
+              apply sep_auto
+              subgoal for n''
+                apply(rule exI[where x = "Suc n''"])
+                by sep_auto
+              done
+            done
+        qed
         done
-      done
-    
+      done  
     subgoal
       apply(sep_auto heap: ref_lookup_2)
         (* TODO: work around *)
@@ -459,7 +624,7 @@ lemma update_2: "
 
    done
 
-find_theorems "<_> Array.upd _ _ _ <_>"
+find_theorems "<_> Array.nth _ _  <_>"
 find_theorems "<_> _ <_>"
 
 find_consts "(_ \<Rightarrow> _ list) \<Rightarrow> _ list \<Rightarrow> _ list"
