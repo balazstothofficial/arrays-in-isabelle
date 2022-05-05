@@ -98,10 +98,10 @@ lemma open_master_assn:
   using assms open_master_assn' by fastforce
 
 fun la_rel' where
-  "la_rel' C 0 xs a \<longleftrightarrow> member C (a, Array' xs)"
-| "la_rel' C (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. 
-      member C (a, Upd' i x a')
-    \<and> la_rel' C n xs' a'
+  "la_rel' t 0 xs a \<longleftrightarrow> member t (a, Array' xs)"
+| "la_rel' t (Suc n) xs a \<longleftrightarrow> (\<exists>i x a' xs'. 
+      member t (a, Upd' i x a')
+    \<and> la_rel' t n xs' a'
     \<and> xs = xs'[i:=x] 
     \<and> i < length xs'
 )"
@@ -391,51 +391,22 @@ lemma la_rel_cons: "la_rel t xs la \<Longrightarrow> la_rel ((la', c') # t) xs l
     qed
     done
 
-lemma master_assn_distinct: "master_assn t \<Longrightarrow>\<^sub>A \<up>(distinct (map fst t))"
+  thm  map_eq_Cons_conv Misc.map_eq_append_conv
+  find_theorems "map _ _ = _ @ _"
+
+lemma master_assn_distinct_2: "h \<Turnstile> master_assn t \<Longrightarrow> distinct (map fst t)"
+  apply(rule ccontr)
+  apply(drule not_distinct_decomp)
+  apply(clarsimp simp: map_eq_Cons_conv Misc.map_eq_append_conv)
   unfolding master_assn_def
-  proof(induction t)
-    case Nil
-    then show ?case 
-      by auto
-  next
-    case (Cons a t)
-    then show ?case 
-    proof(cases "member (map fst t) (fst a)")
-      case True
-      then obtain b where "member t (fst a, b)"
-        by auto
+  by simp
+  
 
-      then have "member (map (\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) t) (case (fst a, b) of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"
-        by auto
+  
 
-      then have "fold_assn (map (\<lambda>a. case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) (a # t)) = 
-                 (case (fst a, b) of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) * 
-                    fold_assn (map (\<lambda>a. case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) (a # (remove1 (fst a, b) t)))"
-        using fold_assn_remove1
-        by (smt (verit, ccfv_threshold) \<open>member t (fst a, b)\<close> fold_assn_remove1_map master_assn_def open_master_assn_cons prod.collapse star_aci(3))
+lemma master_assn_distinct: "master_assn t \<Longrightarrow>\<^sub>A \<up>(distinct (map fst t)) * true"
+  by(sep_auto simp: master_assn_distinct_2)
 
-      then have 1: "fold_assn (map (\<lambda>a. case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) (a # t)) = 
-                 (case (fst a, b) of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) * 
-                   (case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) * 
-                    fold_assn (map (\<lambda>a. case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) ((remove1 (fst a, b) t)))"
-        using star_assoc by fastforce
-
-      have " (case (fst a, b) of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) * 
-                   (case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) = false"
-        by(sep_auto split: prod.splits)
-
-      then have "fold_assn (map (\<lambda>a. case a of (p, c') \<Rightarrow> \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) (a # t)) = false"
-        using 1 star_false_left by presburger
-
-      then show ?thesis
-        by(sep_auto)
-    next
-      case False
-
-      with Cons show ?thesis
-        sorry
-    qed
-  qed
 
 lemma update_2: "
   <master_assn t * \<up>(la_rel t xs la \<and> i < length xs)> 
@@ -444,11 +415,15 @@ lemma update_2: "
 "
   apply(subst update.simps)
   unfolding la_rel_def
-  apply(auto)
+  apply auto
   subgoal for n
   proof(induction "n = 0")
     case True
-    then show ?thesis 
+    then show ?thesis
+      apply -
+      apply(rule hoare_triple_preI)
+      apply(drule master_assn_distinct_2)
+      find_theorems "<_> _ <_>" "_ \<Turnstile>_"
       apply simp
       apply(sep_drule r: open_master_assn)
       apply(sep_auto eintros del: exI)
@@ -461,14 +436,14 @@ lemma update_2: "
          defer
          apply(sep_auto simp: open_master_assn_cons)
         subgoal for xs' la' h n' as
-        proof(induction t n' xs' la' arbitrary: xs' la' rule: la_rel'.induct )
-          case (1 t xs' la')
+        proof(induction t==t n' xs' la' arbitrary: xs' la' rule: la_rel'.induct )
+          case (1 xs' la')
           then show ?case 
           proof(cases "la' = la")
             case True
 
-            have "distinct (map fst t)" 
-              sorry
+            with 1 have "distinct (map fst t)" 
+              by auto
 
             with 1 True have "xs' = xs"
               by (meson cell'.inject(1) distinct_map_fstD la_rel'.simps(1))
@@ -489,15 +464,18 @@ lemma update_2: "
               by sep_auto
           qed
         next
-          case (2 C n' xs' la')
-          from 2(5) show ?case 
+          case (2 n' xs' la')
+          note LA_REL_PREM = \<open>la_rel' t (Suc n') xs' la'\<close>
+          note OTHER_PREMS = 2(2) 2(3) 2(4) 2(5) 2(7)
+
+          from LA_REL_PREM show ?case
             apply sep_auto
             subgoal for i v la'' xs''
-              using 2(1)[of xs'' la''] 2(2) 2(3) 2(4) 2(6)
-              apply sep_auto
+              using "2.hyps"[of xs'' la''] OTHER_PREMS
+              apply(sep_auto)
               subgoal for n''
                 apply(rule exI[where x = "Suc n''"])
-                by sep_auto
+                by(sep_auto)
               done
             done
         qed
@@ -512,11 +490,6 @@ lemma update_2: "
        by sep_auto+
    qed
    done
-
-find_theorems "<_> Array.nth _ _  <_>"
-find_theorems "<_> _ <_>"
-
-find_consts "(_ \<Rightarrow> _ list) \<Rightarrow> _ list \<Rightarrow> _ list"
 
  
 definition create_la where
@@ -536,4 +509,112 @@ definition test where "test = do {
 ML_val \<open>@{code test} ()\<close>
 
 export_code test in SML_imp module_name foo
+
+lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
+  apply(induction xs arbitrary: i)
+   apply auto
+  unfolding List.nth_def
+  apply simp
+  done
+
+definition array_nth_safe where
+  "array_nth_safe arr i = do {
+    len \<leftarrow> Array.len arr;
+    if i < len
+    then Array.nth arr i
+    else do { 
+      xs \<leftarrow> Array.freeze arr;
+      return (xs ! i)
+    }
+  }"
+
+definition array_update_safe where
+  "array_update_safe i v arr = do {
+    len \<leftarrow> Array.len arr;
+    if i < len
+    then Array.upd i v arr
+    else do { 
+      return arr
+    }
+  }"
+
+value "(xs[1 := 2], xs[1 := 3])"
+
+definition test1 where
+  "test1 xs = (let c1 = 1; c2 = 2; c3 = 3; t1 = xs[c1 := c2]; t2 = t1[c1 := c3]; t3 = t2 ! c2 in t3)"
+
+lemma array_nth_safe [sep_heap_rules]: "<arr \<mapsto>\<^sub>a xs> array_nth_safe arr i <\<lambda>res. \<up>(res = xs ! i) * arr \<mapsto>\<^sub>a xs>"
+  unfolding array_nth_safe_def
+  by(sep_auto simp: nth_undefined)
+
+lemma array_update_safe [sep_heap_rules]:
+  "<arr \<mapsto>\<^sub>a xs> array_update_safe i v arr <\<lambda>res. \<up>(res = arr) * arr \<mapsto>\<^sub>a xs[i := v]>"
+  unfolding array_update_safe_def
+  by(sep_auto)
+
+definition hnr where "hnr \<Gamma> c \<Gamma>' R a = <\<Gamma>> c <\<lambda>r. \<Gamma>' * R a r>\<^sub>t"
+
+lemmas hnrD = hnr_def[THEN iffD1]
+lemmas hnrI = hnr_def[THEN iffD2]
+
+definition id_assn where "id_assn a c = \<up>(c = a)"
+
+lemma hnr_return: "hnr \<Gamma> (return x) \<Gamma> id_assn x"
+  unfolding hnr_def id_assn_def
+  by sep_auto
+
+lemma hnr_let:
+  assumes 
+    "hnr \<Gamma> vi \<Gamma>\<^sub>1 R\<^sub>1 v" 
+    "\<And>xi x. hnr (\<Gamma>\<^sub>1 * R\<^sub>1 x xi) (fi xi) \<Gamma>' R (f x)"
+  shows 
+    "hnr \<Gamma> (do { x \<leftarrow> vi; fi x }) \<Gamma>' R (let x = v in f x)"
+  supply[sep_heap_rules] = assms[THEN hnrD]
+  apply(rule hnrI)
+  by sep_auto
+
+lemma hnr_array_nth: "hnr (xsi \<mapsto>\<^sub>a xs * id_assn i ii) (array_nth_safe xsi ii) (xsi \<mapsto>\<^sub>a xs * id_assn i ii) id_assn (xs ! i)"
+  unfolding id_assn_def
+  apply(rule hnrI)
+  by sep_auto
+
+abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a xs"
+
+lemma hnr_array_update: "hnr (xsi \<mapsto>\<^sub>a xs * id_assn i ii * id_assn v vi) 
+           (array_update_safe ii vi xsi) 
+           (id_assn i ii * id_assn v vi) array_assn (xs [i:= v])"
+  unfolding id_assn_def
+  apply(rule hnrI)
+  by sep_auto
+
+lemma hnr_pass: "hnr (id_assn x xi) (return xi) emp id_assn x"
+  unfolding id_assn_def
+  apply(rule hnrI)
+  by sep_auto
+
+lemma hnr_frame:
+  assumes
+    "hnr \<Gamma> fi \<Gamma>' R f"
+    "\<Gamma>\<^sub>P \<Longrightarrow>\<^sub>A \<Gamma> * F"
+  shows
+    "hnr \<Gamma>\<^sub>P fi (\<Gamma>' * F) R f"
+  sorry
+
+(* for ifs and my arrays *)
+
+schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' ?R (test1 xs)"
+  unfolding test1_def 
+  apply(rule hnr_let hnr_return)+
+  apply(rule hnr_frame[OF hnr_array_update], frame_inference)
+  apply(rule hnr_let)
+   apply(rule hnr_frame[OF hnr_array_update], frame_inference)
+  apply(rule hnr_let)
+   apply(rule hnr_frame[OF hnr_array_nth], frame_inference)
+ 
+  apply(rule hnr_frame[OF hnr_pass])
+  sorry
+  
+  
+
+export_code array_nth_safe array_update_safe in SML_imp
 
