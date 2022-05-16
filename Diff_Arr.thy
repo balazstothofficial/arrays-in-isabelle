@@ -96,7 +96,8 @@ next
     by sep_auto
 qed
 
-lemma from_array: "<a \<mapsto>\<^sub>a xs> from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
+lemma from_array [sep_heap_rules]:
+    "<a \<mapsto>\<^sub>a xs> from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
   unfolding from_array_def master_assn_def diff_arr_rel_def
   apply vcg
   subgoal for r
@@ -105,7 +106,7 @@ lemma from_array: "<a \<mapsto>\<^sub>a xs> from_array a <\<lambda>r. \<exists>\
     by(sep_auto simp: ent_ex_postI[where x = "cell.Array a"])+
   done
 
-lemma from_array': "
+lemma from_array' [sep_heap_rules]: "
   <a \<mapsto>\<^sub>a xs * master_assn t>
     from_array a      
   <\<lambda>r. let t' = (r, Array' xs)#t 
@@ -145,7 +146,7 @@ next
     by sep_auto+
 qed
 
-lemma lookup: "
+lemma lookup [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> a \<and> i < length xs)> 
     lookup a i 
   <\<lambda>r. master_assn t * \<up>(r = xs!i)>\<^sub>t
@@ -184,7 +185,7 @@ next
     by sep_auto
 qed
 
-lemma realize: "
+lemma realize [sep_heap_rules]: "
    <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
     realize diff_arr
   <\<lambda>arr. master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr) * arr \<mapsto>\<^sub>a xs>
@@ -196,7 +197,7 @@ lemma realize: "
     by sep_auto
   done
 
-lemma update: "
+lemma update [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
     update diff_arr i v
   <\<lambda>diff_arr'. \<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs[i := v] \<sim> diff_arr')>\<^sub>t
@@ -228,7 +229,7 @@ lemma update: "
   done
   done
 
-lemma update': "
+lemma update'[sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
     update diff_arr i v
   <\<lambda>_. \<exists>\<^sub>At'. master_assn t' * \<up>(\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr')>\<^sub>t

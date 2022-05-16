@@ -18,9 +18,7 @@ definition array_update_safe where
     len \<leftarrow> Array.len arr;
     if i < len
     then Array.upd i v arr
-    else do { 
-      return arr
-    }
+    else return arr
   }"
 
 lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
