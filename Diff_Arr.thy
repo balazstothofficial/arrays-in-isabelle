@@ -197,7 +197,7 @@ lemma realize [sep_heap_rules]: "
     by sep_auto
   done
 
-lemma update [sep_heap_rules]: "
+lemma update: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
     update diff_arr i v
   <\<lambda>diff_arr'. \<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs[i := v] \<sim> diff_arr')>\<^sub>t
@@ -229,7 +229,15 @@ lemma update [sep_heap_rules]: "
   done
   done
 
-lemma update'[sep_heap_rules]: "
+(* \<And>x xb.
+       \<lbrakk>0 < n; i < length xs; t \<turnstile> xs \<sim>\<^sub>n diff_arr\<rbrakk>
+       \<Longrightarrow> \<exists>t'. ((\<exists>a b. (a, b) \<Turnstile> xb \<mapsto>\<^sub>r cell.Array x * x \<mapsto>\<^sub>a xs[i := v] * master_assn t * true) \<longrightarrow>
+                 (\<forall>xs' diff_arr'. (\<exists>n. t \<turnstile> xs' \<sim>\<^sub>n diff_arr') \<longrightarrow> (\<exists>n. t' \<turnstile> xs' \<sim>\<^sub>n diff_arr')) \<and>
+                 (\<exists>n. t' \<turnstile> xs[i := v] \<sim>\<^sub>n xb)) \<and>
+                (xb \<mapsto>\<^sub>r cell.Array x * x \<mapsto>\<^sub>a xs[i := v] * master_assn t * true \<Longrightarrow>\<^sub>A
+                 master_assn t' * true) *)
+
+lemma update': "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
     update diff_arr i v
   <\<lambda>_. \<exists>\<^sub>At'. master_assn t' * \<up>(\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr')>\<^sub>t
@@ -310,5 +318,13 @@ lemma update'[sep_heap_rules]: "
        by sep_auto+
    qed
    done
+
+lemma update''[sep_heap_rules]: "
+  <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
+    update diff_arr i v
+  <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
+    \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> (t' \<turnstile> xs[i := v] \<sim> diff_arr))>\<^sub>t
+"
+  sorry
 
 end
