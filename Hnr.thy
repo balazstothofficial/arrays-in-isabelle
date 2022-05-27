@@ -14,6 +14,7 @@ abbreviation id_assn where "id_assn a c \<equiv> \<up>(id_rel a c)"
 abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a xs"
 
 named_theorems hnr_rule
+named_theorems hnr_rule_raw
 named_theorems hnr_rule_diff_arr
 
 lemma hnr_return: "hnr \<Gamma> (return x) \<Gamma> id_assn x"
@@ -55,7 +56,7 @@ method keep_drop_simp = (simp only: star_aci)?; rule ent_refl
 method keep_drop = 
   rule keep_drop_init, ((rule keep_drop_step)+; fail), keep_drop_simp, keep_drop_simp
 
-lemma hnr_let[hnr_rule, hnr_rule_diff_arr]:
+lemma hnr_let[hnr_rule_raw]:
   assumes 
     "hnr \<Gamma> vi \<Gamma>\<^sub>1 R\<^sub>1 v" 
     "\<And>xi x. hnr (\<Gamma>\<^sub>1 * R\<^sub>1 x xi) (fi xi) (\<Gamma>' x xi) R (f x)"
@@ -124,13 +125,18 @@ lemma hnr_array_update [hnr_rule]: "
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_pass: "hnr (id_assn x xi) (return xi) emp id_assn x"
+lemma hnr_pass: "hnr (A x xi) (return xi) emp A x"
   unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_copy: "hnr (id_assn x xi) (return xi) (id_assn x xi) id_assn x"
+lemma hnr_copy: "hnr (id_assn x xi) (return xi) emp id_assn x"
   unfolding id_rel_def
+  apply(rule hnrI)
+  by sep_auto
+
+lemma hnr_copy_diff_arr [hnr_rule_diff_arr]:
+  "hnr (master_assn t * \<up>(t \<turnstile> x \<sim> xi)) (return xi) (master_assn t) (\<lambda>x xi. \<up>(t \<turnstile> x \<sim> xi)) x"
   apply(rule hnrI)
   by sep_auto
 
@@ -147,7 +153,7 @@ lemma hnr_lookup[hnr_rule_diff_arr]: "
   hnr
     (master_assn t * id_assn i ii * \<up>(t \<turnstile> xs \<sim> xsi))
     (diff_arr_lookup_safe xsi ii)
-    (master_assn t * id_assn i ii * \<up>(t \<turnstile> xs \<sim> xsi))
+    (master_assn t)
     id_assn
     (xs ! i)"
   unfolding id_rel_def
