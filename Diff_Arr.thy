@@ -2,14 +2,18 @@ theory Diff_Arr
   imports Diff_Arr_Rel
 begin
 
+(* TODO: Use Type Classes instead of context *)
+context
+begin
+
 type_synonym 'a diff_arr = "'a cell ref"
 
-definition from_array :: "('a::heap) array \<Rightarrow> 'a diff_arr Heap" where
+qualified definition from_array :: "('a::heap) array \<Rightarrow> 'a diff_arr Heap" where
   "from_array a = do {
     ref (Array a)
   }"
 
-partial_function (heap) lookup :: "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a Heap" where
+qualified partial_function (heap) lookup :: "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a Heap" where
   "lookup diff_arr n = do {
       cell \<leftarrow> !diff_arr;
       case cell of
@@ -20,8 +24,17 @@ partial_function (heap) lookup :: "('a::heap) diff_arr \<Rightarrow> nat \<Right
   }"
 declare lookup.simps[code]
 
+(* TODO: Use size type class *)
+qualified partial_function (heap) length :: "('a::heap) diff_arr \<Rightarrow> nat Heap" where
+  "length diff_arr = do {
+      cell \<leftarrow> !diff_arr;
+      case cell of
+        Array array   \<Rightarrow> Array.len array
+      | Upd m value r \<Rightarrow> length r
+  }"
+
 (* TODO: use array_copy *)
-partial_function (heap) realize :: "('a::heap) diff_arr \<Rightarrow> 'a array Heap" where
+qualified partial_function (heap) realize :: "('a::heap) diff_arr \<Rightarrow> 'a array Heap" where
   "realize diff_arr = do {
     cell \<leftarrow> !diff_arr;
      case cell of
@@ -37,7 +50,9 @@ partial_function (heap) realize :: "('a::heap) diff_arr \<Rightarrow> 'a array H
   }"
 declare realize.simps[code]
 
-partial_function (heap) update :: "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a diff_arr Heap" where
+qualified partial_function (heap) update :: 
+    "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a diff_arr Heap"
+where
   "update diff_arr i v = do {
       cell  \<leftarrow> !diff_arr;
       case cell of
@@ -55,6 +70,8 @@ partial_function (heap) update :: "('a::heap) diff_arr \<Rightarrow> nat \<Right
         }
   }"
 declare update.simps[code]
+
+end
 
 lemma ref_lookup_aux: "t \<turnstile> xs \<sim>\<^sub>n a \<Longrightarrow> <master_assn t> !a <\<lambda>c. master_assn t>"
 proof(induction n)
@@ -94,11 +111,11 @@ next
     apply sep_auto
     apply(sep_drule r: close_master_assn_upd)
     by sep_auto
-qed
+qed 
 
 lemma from_array [sep_heap_rules]:
-    "<a \<mapsto>\<^sub>a xs> from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
-  unfolding from_array_def master_assn_def diff_arr_rel_def
+    "<a \<mapsto>\<^sub>a xs>  Diff_Arr.from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
+  unfolding Diff_Arr.from_array_def master_assn_def diff_arr_rel_def
   apply vcg
   subgoal for r
     apply(rule ent_ex_postI[where x = "[(r, Array' xs)]"])
@@ -108,17 +125,17 @@ lemma from_array [sep_heap_rules]:
 
 lemma from_array' [sep_heap_rules]: "
   <a \<mapsto>\<^sub>a xs * master_assn t>
-    from_array a      
+     Diff_Arr.from_array a      
   <\<lambda>r. let t' = (r, Array' xs)#t 
     in master_assn t' * \<up>(diff_arr_rel t' xs r)>"
-  unfolding from_array_def Let_def diff_arr_rel_def
+  unfolding  Diff_Arr.from_array_def Let_def diff_arr_rel_def
   apply sep_auto
   apply (meson diff_arr_rel'.simps(1) diff_arr_rel_def list.set_intros(1))
   by (metis close_master_assn_array list.set_intros(1) remove1.simps(2) star_aci(2))
 
 lemma lookup_aux: "
   <\<up>(t \<turnstile> xs \<sim>\<^sub>n a \<and> i < length xs) * master_assn t >
-     lookup a i 
+      Diff_Arr.lookup a i 
   <\<lambda>r. master_assn t * \<up>(r = xs!i)>\<^sub>t"
 proof(induction n arbitrary: xs a)
   case 0
@@ -148,7 +165,7 @@ qed
 
 lemma lookup [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> a \<and> i < length xs)> 
-    lookup a i 
+     Diff_Arr.lookup a i 
   <\<lambda>r. master_assn t * \<up>(r = xs!i)>\<^sub>t
 " unfolding diff_arr_rel_def
   apply(sep_auto)
@@ -158,7 +175,7 @@ lemma lookup [sep_heap_rules]: "
 
 lemma realize_aux: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim>\<^sub>n diff_arr)> 
-    realize diff_arr
+     Diff_Arr.realize diff_arr
   <\<lambda>arr. master_assn t * \<up>(t \<turnstile> xs \<sim>\<^sub>n diff_arr) * arr \<mapsto>\<^sub>a xs>
 " 
 proof(induction n arbitrary: t diff_arr xs)
@@ -187,7 +204,7 @@ qed
 
 lemma realize [sep_heap_rules]: "
    <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
-    realize diff_arr
+     Diff_Arr.realize diff_arr
   <\<lambda>arr. master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr) * arr \<mapsto>\<^sub>a xs>
 " 
   unfolding diff_arr_rel_def
@@ -197,50 +214,11 @@ lemma realize [sep_heap_rules]: "
     by sep_auto
   done
 
-lemma update: "
+lemma update[sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
-    update diff_arr i v
-  <\<lambda>diff_arr'. \<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs[i := v] \<sim> diff_arr')>\<^sub>t
-"
-  apply(subst update.simps)
-  unfolding diff_arr_rel_def
-  apply clarsimp
-  subgoal for n
-    apply(cases "n = 0"; simp)
-    subgoal
-      apply(sep_drule r: open_master_assn)
-      apply(sep_auto eintros del: exI)
-      subgoal for new_arr new_diff_arr
-        apply(rule exI[where x = " (new_diff_arr, Array' (xs[i := v]))
-                                  # (diff_arr, Upd' i (xs ! i) new_diff_arr) 
-                                  # (remove1 (diff_arr, Array' xs) t)"])
-        by(sep_auto simp: open_master_assn_cons intro: exI[where x = 0])
-      done
-    
-    subgoal
-      apply(sep_auto heap: ref_lookup_upd)
-      (* TODO: work around *)
-      apply(rule fi_rule[OF realize_aux])
-      apply(sep_auto eintros del: exI)+
-      subgoal for new_arr new_diff_arr
-        apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) #  t"])
-        by(sep_auto simp: open_master_assn_cons heap: realize_aux intro: exI[where x = 0])
-    done
-  done
-  done
-
-(* \<And>x xb.
-       \<lbrakk>0 < n; i < length xs; t \<turnstile> xs \<sim>\<^sub>n diff_arr\<rbrakk>
-       \<Longrightarrow> \<exists>t'. ((\<exists>a b. (a, b) \<Turnstile> xb \<mapsto>\<^sub>r cell.Array x * x \<mapsto>\<^sub>a xs[i := v] * master_assn t * true) \<longrightarrow>
-                 (\<forall>xs' diff_arr'. (\<exists>n. t \<turnstile> xs' \<sim>\<^sub>n diff_arr') \<longrightarrow> (\<exists>n. t' \<turnstile> xs' \<sim>\<^sub>n diff_arr')) \<and>
-                 (\<exists>n. t' \<turnstile> xs[i := v] \<sim>\<^sub>n xb)) \<and>
-                (xb \<mapsto>\<^sub>r cell.Array x * x \<mapsto>\<^sub>a xs[i := v] * master_assn t * true \<Longrightarrow>\<^sub>A
-                 master_assn t' * true) *)
-
-lemma update': "
-  <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
-    update diff_arr i v
-  <\<lambda>_. \<exists>\<^sub>At'. master_assn t' * \<up>(\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr')>\<^sub>t
+     Diff_Arr.update diff_arr i v
+  <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
+    \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> (t' \<turnstile> xs[i := v] \<sim> diff_arr))>\<^sub>t
 "
   apply(subst update.simps)
   unfolding diff_arr_rel_def
@@ -248,26 +226,23 @@ lemma update': "
   subgoal for n
   proof(induction "n = 0")
     case True
-    then show ?thesis
+    then show ?thesis 
       apply -
-      apply(rule hoare_triple_preI)
+       apply(rule hoare_triple_preI)
       apply(drule master_assn_distinct)
       apply simp
       apply(sep_drule r: open_master_assn)
       apply(sep_auto eintros del: exI)
       subgoal for new_arr new_diff_arr
-        apply(rule exI[where x = "
+         apply(rule exI[where x = "
                      (new_diff_arr, Array' (xs[i := v]))
                    #  (diff_arr, Upd' i (xs ! i) new_diff_arr)
                    #   (remove1 (diff_arr, Array' xs) t)"]) 
         apply sep_auto
-         defer
-         apply(sep_auto simp: open_master_assn_cons)
-        subgoal for xs' diff_arr' h n' as
+          subgoal for xs' diff_arr' h n' as
         proof(induction t==t xs' n' diff_arr' arbitrary: xs' diff_arr' rule: diff_arr_rel'.induct)
           case (1 xs' diff_arr')
-          then show ?case 
-          proof(cases "diff_arr' = diff_arr")
+          then show ?case  proof(cases "diff_arr' = diff_arr")
             case True
 
             with 1 have "distinct (map fst t)" 
@@ -307,24 +282,58 @@ lemma update': "
               done
             done
         qed
-        done
-      done  
+        apply (meson diff_arr_rel'.simps(1) list.set_intros(1))
+        by(sep_auto simp: open_master_assn_cons)
+      done
   next
     case False
     then show ?thesis 
-        apply(sep_auto heap: ref_lookup_upd)
-        (* TODO: work around *)
+      apply(sep_auto heap: ref_lookup_upd)
        apply(rule fi_rule[OF realize_aux])
-       by sep_auto+
-   qed
-   done
+       apply(sep_auto eintros del: exI)+
+      subgoal for new_arr new_diff_arr
+      proof(induction "(new_diff_arr,  Array' (xs[i := v]))\<in>\<^sub>Lt")
+        case True
+        then show ?thesis
+          apply-
+          apply(rule exI[where x = "t"])
+          by(sep_auto intro: exI[where x = 0])
+      next
+        case False
+        then show ?thesis
+          apply-
+          apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) #  t"])
+          apply sep_auto
+          using diff_arr_rel'_cons apply blast
+          by(sep_auto simp: open_master_assn_cons intro: exI[where x = 0])+
+      qed
+      done
+  qed
+  done
 
-lemma update''[sep_heap_rules]: "
-  <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
-    update diff_arr i v
-  <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
-    \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> (t' \<turnstile> xs[i := v] \<sim> diff_arr))>\<^sub>t
-"
-  sorry
+lemma length[sep_heap_rules]: "
+  <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
+    Diff_Arr.length diff_arr 
+  <\<lambda>len. master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> len = length xs)>"
+  apply(subst length.simps)
+  unfolding diff_arr_rel_def
+  apply auto
+  subgoal for n
+  proof(induction t xs n diff_arr rule: diff_arr_rel'.induct)
+    case (1 t xs a)
+    then show ?case 
+      apply simp
+      apply(sep_drule r: open_master_assn)
+      by(sep_auto simp: close_master_assn_array)
+  next
+    case (2 t xs n a)
+    then show ?case 
+      apply auto
+      apply(sep_drule r: open_master_assn)
+      apply(sep_auto simp: close_master_assn_upd')
+      apply(subst length.simps)
+      by sep_auto
+  qed
+  done
 
 end

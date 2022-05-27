@@ -17,26 +17,24 @@ definition diff_arr_rel where
   "diff_arr_rel t xs a \<equiv> \<exists>n. t \<turnstile> xs \<sim>\<^sub>n a"
 notation diff_arr_rel ("(_ \<turnstile> _ \<sim> _)" [51, 51, 51] 50) (* TODO: Is precedence okay? *)
 
-lemma diff_arr_rel_cons: "t \<turnstile> xs \<sim> diff_arr \<Longrightarrow> (diff_arr', c') # t \<turnstile> xs \<sim> diff_arr"
-  unfolding diff_arr_rel_def
-  apply auto
-  subgoal for n
-    apply(rule exI[where x = n]) 
-    proof(induction t xs n diff_arr rule: diff_arr_rel'.induct)
-      case (1 C xs a)
-      then show ?case
-        by auto
-    next
-      case (2 C n xs a)
-      then show ?case
-        apply auto
-        subgoal for i x diff_arr'
-          apply(rule exI[where x = i]) 
-          apply(rule exI[where x = x]) 
-          apply(rule exI[where x = diff_arr']) 
-          by auto
-        done
-    qed
+lemma diff_arr_rel'_cons: "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> x # t \<turnstile> xs \<sim>\<^sub>n diff_arr"
+proof(induction t xs n diff_arr rule: diff_arr_rel'.induct)
+  case 1
+  then show ?case by auto
+next
+  case (2 t xs n a)
+  then show ?case 
+    apply auto
+    subgoal for i v a' xs'
+      apply(rule exI[where x = "i"])
+      apply(rule exI[where x = "v"])
+      apply(rule exI[where x = "a'"])
+      by auto
     done
+qed
+
+lemma diff_arr_rel_cons: "t \<turnstile> xs \<sim> diff_arr \<Longrightarrow> x # t \<turnstile> xs \<sim> diff_arr"
+  unfolding diff_arr_rel_def
+  using diff_arr_rel'_cons by blast
 
 end

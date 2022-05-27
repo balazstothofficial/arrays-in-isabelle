@@ -1,5 +1,5 @@
 theory Base
-  imports "Separation_Logic_Imperative_HOL.Sep_Main"
+  imports "Separation_Logic_Imperative_HOL.Sep_Main" Named_Simpsets More_Eisbach_Tools
 begin
 
 no_notation Ref.update ("_ := _" 62)

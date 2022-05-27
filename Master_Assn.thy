@@ -6,29 +6,29 @@ definition master_assn :: "('a cell ref * 'a::heap cell') list \<Rightarrow> ass
   "master_assn C = fold_assn (map (\<lambda>(p, c'). \<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) C)"
 
 lemma open_master_assn_cons: 
-    "master_assn ((p,c')#xs) = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn xs"
+    "master_assn ((p,c')#t) = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn t"
   unfolding master_assn_def
   by auto
 
 lemma open_master_assn': 
-  assumes "(p, c') \<in>\<^sub>L xs"
-  shows "master_assn xs = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (p, c') xs)"
+  assumes "(p, c') \<in>\<^sub>L t"
+  shows "master_assn t = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (p, c') t)"
 proof-
   from assms have 
-    "(\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) \<in>\<^sub>L (map (\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) xs)"
+    "(\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) \<in>\<^sub>L (map (\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c) t)"
     by auto
 
   with assms show ?thesis
     unfolding master_assn_def
     using 
         fold_assn_remove1
-        fold_assn_remove1_map[of "(p, c')" xs "(\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"]
+        fold_assn_remove1_map[of "(p, c')" t "(\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"]
     by auto
 qed 
 
 lemma open_master_assn: 
-  assumes "(p, c') \<in>\<^sub>L xs"
-  shows "master_assn xs \<Longrightarrow>\<^sub>A (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (p, c') xs)"
+  assumes "(p, c') \<in>\<^sub>L t"
+  shows "master_assn t \<Longrightarrow>\<^sub>A (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn (remove1 (p, c') t)"
   using assms open_master_assn' by fastforce
 
 lemma close_master_assn_array: "(a, Array' xs) \<in>\<^sub>L t

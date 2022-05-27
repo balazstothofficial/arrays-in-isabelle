@@ -7,16 +7,17 @@ definition hnr where "hnr \<Gamma> c \<Gamma>' R a = <\<Gamma>> c <\<lambda>r. \
 lemmas hnrD = hnr_def[THEN iffD1]
 lemmas hnrI = hnr_def[THEN iffD2]
 
-definition id_assn where "id_assn a c = \<up>(c = a)"
+definition id_rel where "id_rel a c \<equiv> c = a"
+
+abbreviation id_assn where "id_assn a c \<equiv> \<up>(id_rel a c)"
 
 abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a xs"
 
 named_theorems hnr_rule
-named_theorems hnr_rule_2
 named_theorems hnr_rule_diff_arr
 
 lemma hnr_return: "hnr \<Gamma> (return x) \<Gamma> id_assn x"
-  unfolding hnr_def id_assn_def
+  unfolding hnr_def id_rel_def
   by sep_auto
 
 lemma keep_drop_1:
@@ -54,9 +55,7 @@ method keep_drop_simp = (simp only: star_aci)?; rule ent_refl
 method keep_drop = 
   rule keep_drop_init, ((rule keep_drop_step)+; fail), keep_drop_simp, keep_drop_simp
 
-
-
-lemma hnr_let[hnr_rule]:
+lemma hnr_let[hnr_rule, hnr_rule_diff_arr]:
   assumes 
     "hnr \<Gamma> vi \<Gamma>\<^sub>1 R\<^sub>1 v" 
     "\<And>xi x. hnr (\<Gamma>\<^sub>1 * R\<^sub>1 x xi) (fi xi) (\<Gamma>' x xi) R (f x)"
@@ -103,35 +102,35 @@ shows
   sorry *)
 
 
-lemma hnr_array_nth [hnr_rule, hnr_rule_2]: "
+lemma hnr_array_nth [hnr_rule]: "
     hnr
      (xsi \<mapsto>\<^sub>a xs * id_assn i ii)
      (array_nth_safe xsi ii) 
      (xsi \<mapsto>\<^sub>a xs * id_assn i ii) 
      id_assn 
      (xs ! i)"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_array_update [hnr_rule, hnr_rule_2]: "
+lemma hnr_array_update [hnr_rule]: "
     hnr 
       (xsi \<mapsto>\<^sub>a xs * id_assn i ii * id_assn v vi) 
       (array_update_safe ii vi xsi) 
       (id_assn i ii * id_assn v vi) 
       array_assn 
       (xs [i:= v])"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
 lemma hnr_pass: "hnr (id_assn x xi) (return xi) emp id_assn x"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
 lemma hnr_copy: "hnr (id_assn x xi) (return xi) (id_assn x xi) id_assn x"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
@@ -146,23 +145,23 @@ lemma hnr_frame:
 
 lemma hnr_lookup[hnr_rule_diff_arr]: "
   hnr
-    (master_assn t * id_assn i ii * \<up>(t \<turnstile> xs \<sim> xsi \<and> i < length xs))
-    (lookup xsi ii)
-    (master_assn t * id_assn i ii * \<up>(t \<turnstile> xs \<sim> xsi \<and> i < length xs))
+    (master_assn t * id_assn i ii * \<up>(t \<turnstile> xs \<sim> xsi))
+    (diff_arr_lookup_safe xsi ii)
+    (master_assn t * id_assn i ii * \<up>(t \<turnstile> xs \<sim> xsi))
     id_assn
     (xs ! i)"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
-  using lookup by fastforce
+  using lookup_safe by fastforce
 
 lemma hnr_realize: "
   hnr
     (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi))
-    (realize xsi)
+    (Diff_Arr.realize xsi)
     (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi))
     array_assn
     xs"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
   using realize[of t xs xsi]
   by(sep_auto simp: cons_post_rule ent_refl_true)
@@ -171,60 +170,19 @@ lemma ht_combine_post: "<P> c <Q> \<Longrightarrow> <P> c <Q'> \<Longrightarrow>
   unfolding hoare_triple_def
   by(auto simp: Let_def mod_and_dist)
 
-thm ht_combine_post[OF update update', simplified]
-
-lemma hnr_update: "
+lemma hnr_update[hnr_rule_diff_arr]: "
   hnr
-    (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi \<and> i < length xs) * id_assn i ii * id_assn v vi)
-    (update xsi ii vi)
-    (id_assn i ii * id_assn v vi)
-    (\<lambda>xs xsi. \<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))
-    (xs [i:= v])"
-  unfolding id_assn_def
-  apply(rule hnrI)
-  using update[of t xs xsi i v]
-  by sep_auto
-
-lemma hnr_update'[hnr_rule_diff_arr]: "
-  hnr
-    (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi \<and> i < length xs) * id_assn i ii * id_assn v vi)
-    (update xsi ii vi)
+    (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi) * id_assn i ii * id_assn v vi)
+    (diff_arr_update_safe xsi ii vi)
     (id_assn i ii * id_assn v vi)
     (\<lambda>xs xsi. \<exists>\<^sub>At'. master_assn t' * \<up>((\<forall>xs' xsi'. t \<turnstile> xs' \<sim>  xsi' \<longrightarrow> t' \<turnstile> xs' \<sim>  xsi') \<and> t' \<turnstile> xs \<sim> xsi))
     (xs [i:= v])"
-  unfolding id_assn_def
+  unfolding id_rel_def
   apply(rule hnrI)
   apply(sep_auto)
   apply(rule cons_post_rule)
-   apply(rule fi_rule[OF update''])
+   apply(rule fi_rule[OF update_safe])
   apply solve_entails
   by sep_auto
-
-(* lemma hnr_array_update [hnr_rule, hnr_rule_2]: "
-    hnr 
-      (xsi \<mapsto>\<^sub>a xs * id_assn i ii * id_assn v vi) 
-      (array_update_safe ii vi xsi) 
-      (id_assn i ii * id_assn v vi) 
-      array_assn 
-      (xs [i:= v])"
-  unfolding id_assn_def
-  apply(rule hnrI)
-  by sep_auto *)
-
-lemma hnr_update_2[hnr_rule_diff_arr]: "
-  hnr
-    (id_assn i ii * id_assn v vi)
-    (update xsi ii vi)
-    (id_assn i ii * id_assn v vi)
-    (\<lambda>xs xsi. \<exists>\<^sub>At'. master_assn t' * \<up>((\<forall>xs' xsi'. t \<turnstile> xs' \<sim>  xsi' \<longrightarrow> t' \<turnstile> xs' \<sim>  xsi') \<and> t' \<turnstile> xs \<sim> xsi))
-    (xs [i:= v])"
-  unfolding id_assn_def
-  apply(rule hnrI)
-  apply(sep_auto)
-  apply(rule cons_post_rule)
-   apply(rule fi_rule[OF update''])
-   apply solve_entails
-     apply sep_auto
-  sorry
 
 end
