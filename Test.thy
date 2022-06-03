@@ -253,8 +253,29 @@ lemma merge_if_2:
   apply fastforce
   using assms[THEN hnrD] cons_pre_rule by sep_auto
 
-lemma wtf: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>At'. master_assn t'"  
+find_theorems "(\<Longrightarrow>\<^sub>A)" "\<exists>\<^sub>A _ . _"
+
+
+
+lemma wtf_3: "(master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x) \<Longrightarrow> (master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x)" 
+  try0
   sorry
+
+lemma wtf_2: assumes "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
+  shows "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
+  using assms
+  apply auto
+  sorry
+
+lemma wtf_1: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x" 
+  using triv_exI[of master_assn t]
+  sorry
+
+lemma wtf: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x" 
+  using triv_exI[of master_assn t]
+  sorry
+
+
 
 lemma merge_or_master_assn_1_1:
   assumes 

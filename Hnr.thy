@@ -1,6 +1,6 @@
 theory Hnr 
   imports Array_Safe Diff_Arr_Safe
-begin
+begin                       
 
 definition hnr where "hnr \<Gamma> c \<Gamma>' a = <\<Gamma>> c <\<lambda>r. \<Gamma>' a r>\<^sub>t"
 
