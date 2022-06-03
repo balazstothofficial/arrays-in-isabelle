@@ -214,12 +214,13 @@ lemma realize [sep_heap_rules]: "
     by sep_auto
   done
 
+(* TODO: Simplify *)
 lemma update[sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
      Diff_Arr.update diff_arr i v
   <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
-    \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> (t' \<turnstile> xs[i := v] \<sim> diff_arr))>\<^sub>t
-"
+    \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
+      (t' \<turnstile> xs[i := v] \<sim> diff_arr))>\<^sub>t"
   apply(subst update.simps)
   unfolding diff_arr_rel_def
   apply auto
@@ -228,7 +229,7 @@ lemma update[sep_heap_rules]: "
     case True
     then show ?thesis 
       apply -
-       apply(rule hoare_triple_preI)
+      apply(rule hoare_triple_preI)
       apply(drule master_assn_distinct)
       apply simp
       apply(sep_drule r: open_master_assn)
@@ -239,7 +240,7 @@ lemma update[sep_heap_rules]: "
                    #  (diff_arr, Upd' i (xs ! i) new_diff_arr)
                    #   (remove1 (diff_arr, Array' xs) t)"]) 
         apply sep_auto
-          subgoal for xs' diff_arr' h n' as
+        subgoal for xs' diff_arr' h n' as
         proof(induction t==t xs' n' diff_arr' arbitrary: xs' diff_arr' rule: diff_arr_rel'.induct)
           case (1 xs' diff_arr')
           then show ?case  proof(cases "diff_arr' = diff_arr")

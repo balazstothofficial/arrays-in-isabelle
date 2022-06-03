@@ -34,11 +34,36 @@ definition test2 where
   "test2 xs = 
     (let c1 = 1; t1 = xs[c1 := c1] in t1)"
 
+definition test3 where
+  "test3 xs = 
+    (let c1 = 1; t1 = xs[c1 := c1]; t2 = xs ! c1 in t1)"
+
+definition test4 where
+  "test4 xs =
+    (let c1 = 1; t1 = if xs = [] then xs else let t2 = xs[c1 := c1] in t2 in t1)"
+
+definition test4_2 where
+  "test4_2 xs =
+    (let c1 = 1; t1 = if xs = [] then xs else let t1 = xs[c1 := c1]; t2 = t1[c1:= c1] in t2 in t1)"
+
+(* TODO: What to do if the bool depends on local variables? *)
+definition test5 where
+  "test5 xs = 
+    (let c1 = 1; t1 = if c1 = 0 then xs else xs[c1 := c1] in t1)"
+
+definition test6 where
+  "test6 xs = 
+    (let c1 = 1; c2 = 2; t1 = if xs = [] then xs[c2 := c2] else xs[c1 := c1] in t1)"
+
+definition test7 where
+  "test7 xs = 
+    (let c1 = 1; c2 = 2; t1 = if xs = [] then let t2 = xs[c2 := c2]; t3 = xs[c1 := c1] in t3 else let t2 = xs[c1 := c1]; t3 = xs[c2 := c1] in t3 in t1)"
+
 attribute_setup framed =
     \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [asm_rl, thm]))\<close>
     \<open>Add frame to hnr rule\<close>
 
-thm hnr_rule[framed]
+thm hnr_rule_arr[framed]
 
 lemma frame_inference_trivial: "P \<Longrightarrow>\<^sub>A P * emp"
   by sep_auto
@@ -51,14 +76,14 @@ lemma move_pure_right:
   "NO_MATCH (\<up>(x)) b \<Longrightarrow> a * \<up>(p) * b = a * b * \<up>(p)"
   by(auto simp: algebra_simps)  
 
-lemma hnr_pre_cong: "\<Gamma> = \<Gamma>' \<Longrightarrow> hnr \<Gamma> c \<Gamma>'' R a = hnr \<Gamma>' c \<Gamma>'' R a"
+lemma hnr_pre_cong: "\<Gamma> = \<Gamma>' \<Longrightarrow> hnr \<Gamma> c \<Gamma>'' a = hnr \<Gamma>' c \<Gamma>'' a"
   by simp
 
 lemma hnr_extract_pure_1:
   assumes
-    "p \<Longrightarrow> hnr \<Gamma> c \<Gamma>' R a"
+    "p \<Longrightarrow> hnr \<Gamma> c \<Gamma>' a"
   shows 
-    "hnr (\<Gamma> * \<up>(p)) c \<Gamma>' R a"
+    "hnr (\<Gamma> * \<up>(p)) c \<Gamma>' a"
   using assms 
   unfolding hnr_def
   apply(cases p) 
@@ -66,9 +91,9 @@ lemma hnr_extract_pure_1:
 
 lemma hnr_extract_pure_2:
   assumes
-    "p \<Longrightarrow> hnr emp c \<Gamma>' R a"
+    "p \<Longrightarrow> hnr emp c \<Gamma>' a"
   shows 
-    "hnr (\<up>(p)) c \<Gamma>' R a"
+    "hnr (\<up>(p)) c \<Gamma>' a"
   using assms 
   unfolding hnr_def
   apply(cases p) 
@@ -76,9 +101,9 @@ lemma hnr_extract_pure_2:
 
 lemma hnr_exE:
    assumes
-   "\<And>x. hnr (P x) c (\<Gamma>' x) (R x) a"
+   "\<And>x. hnr (P x) c (\<Gamma>' x) a"
   shows 
-    "hnr (\<exists>\<^sub>Ax. P x) c (\<exists>\<^sub>Ax. \<Gamma>' x) (\<lambda>u v. \<exists>\<^sub>Ax. R x u v) a"
+    "hnr (\<exists>\<^sub>Ax. P x) c (\<lambda>u v. \<exists>\<^sub>Ax. \<Gamma>' x u v) a"
   using assms
   unfolding hnr_def
   apply(sep_auto)
@@ -132,13 +157,131 @@ lemma frame_match_emp:
 lemma frame_done: "F * emp \<Longrightarrow>\<^sub>A emp * F" 
   by sep_auto
 
-find_theorems "\<up>(True)"
+lemma transfer_diff_arr_rel:
+  assumes 
+    "t \<turnstile> xs \<sim> xsi" 
+    "\<forall>xs xsi. t \<turnstile> xs \<sim> xsi \<longrightarrow> t' \<turnstile> xs \<sim> xsi"
+  shows 
+    "t' \<turnstile> xs \<sim> xsi"
+  using assms by blast
 
 method normalize_hnr_pre = simp(no_asm) named_ss HOL_basic_ss_nomatch:
-  move_pure_right assn_one_left mult_1_right[where 'a=assn] merge_pure_star[symmetric] ex_assn_move_out pure_true
+    move_pure_right assn_one_left mult_1_right[where 'a=assn] 
+    merge_pure_star[symmetric] ex_assn_move_out pure_true
   cong: hnr_pre_cong
 
-method hnr_extract_pure = normalize_hnr_pre?, ((rule hnr_extract_pure)+)?
+lemma ex_or1: "(\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b) \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Aa. P a)"
+  by (simp add: ent_disjE ent_ex_preI)
+ 
+lemma ex_or2: "(\<exists>\<^sub>Aa. P a) \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b)"
+  by (meson ent_disjI1_direct ent_ex_postI ent_ex_preI)
+
+lemma ex_or: "(\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b) = (\<exists>\<^sub>Aa. P a)"
+  apply(rule ent_iffI)
+  using ex_or1 ex_or2 by auto
+
+(* 
+lemma hnr_if: 
+  assumes
+    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
+    "hnr \<Gamma> bi \<Gamma>\<^sub>b b"
+  shows 
+    "hnr 
+      \<Gamma> 
+      (if c then ai else bi) 
+      (\<lambda>a r. \<Gamma>\<^sub>a a r * \<up> c \<or>\<^sub>A \<Gamma>\<^sub>b a r * \<up>(\<not>c)) 
+      (if c then a else b)" 
+  supply[sep_heap_rules] = assms[THEN hnrD]
+  apply(rule hnrI)
+  by(sep_auto simp: ent_star_mono)*)
+
+(* lemma merge_if_1:
+  assumes 
+    "c" 
+    "hnr \<Gamma>\<^sub>a x \<Gamma> xi" 
+  shows 
+   "hnr (\<Gamma>\<^sub>a * \<up> c \<or>\<^sub>A \<Gamma>\<^sub>b * \<up>(\<not>c)) x \<Gamma> xi" 
+  using assms
+  by sep_auto
+
+lemma merge_if_2:
+  assumes 
+    "\<not>c" 
+    "hnr \<Gamma>\<^sub>b x \<Gamma> xi" 
+   shows 
+    "hnr (\<Gamma>\<^sub>a * \<up> c \<or>\<^sub>A \<Gamma>\<^sub>b * \<up>(\<not>c)) x  \<Gamma> xi"
+  using assms
+  by sep_auto
+
+lemma merge_if_fallback:
+  assumes 
+    "hnr true x \<Gamma> xi" 
+   shows 
+    "hnr (\<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b) x  \<Gamma> xi"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  using cons_pre_rule ent_true by blast *)
+
+lemma merge_if_1:
+  assumes 
+    "hnr (\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi)) x \<Gamma> xi" 
+   shows 
+    "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi) \<or>\<^sub>A (\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))) x  \<Gamma> xi"
+  apply(rule hnrI)
+  apply(rule split_rule)
+  using cons_pre_rule assms[THEN hnrD] apply fastforce
+  using assms[THEN hnrD] by simp
+
+(* 
+   hnr (master_assn t * \<up> (t \<turnstile> t1 \<sim> xia) * emp * \<up> True \<or>\<^sub>A
+                (\<exists>\<^sub>At'.
+                    master_assn t' *
+                    \<up> ((\<forall>xs' xsi'. t \<turnstile> xs' \<sim> xsi' \<longrightarrow> t' \<turnstile> xs' \<sim> xsi') \<and> t' \<turnstile> t1 \<sim> xia)) *
+                emp *
+                \<up> (\<not> True))
+*)
+
+lemma merge_if_2:
+  assumes 
+    "hnr ((\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))) x \<Gamma> xi" 
+   shows 
+    "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi) * emp \<or>\<^sub>A 
+          (\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))) x  \<Gamma> xi"
+  apply(rule hnrI)
+  apply(rule split_rule)
+  using cons_pre_rule assms[THEN hnrD]
+  apply fastforce
+  using assms[THEN hnrD] cons_pre_rule by sep_auto
+
+lemma wtf: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>At'. master_assn t'"  
+  sorry
+
+lemma merge_or_master_assn_1_1:
+  assumes 
+    "hnr (\<exists>\<^sub>At'. master_assn t') x \<Gamma> xi"
+   shows 
+    "hnr (master_assn t \<or>\<^sub>A (\<exists>\<^sub>At'. master_assn t')) x \<Gamma> xi"
+  apply(rule hnrI)
+  apply(rule split_rule)
+  using wtf cons_pre_rule[of "master_assn t" "\<exists>\<^sub>At'. master_assn t'" x  "(\<lambda>b. \<Gamma> xi b * true)"] assms[THEN hnrD] 
+  apply sep_auto
+  sorry
+
+lemma merge_or_master_assn_1:
+  assumes 
+    "hnr (\<exists>\<^sub>At'. master_assn t') x \<Gamma> xi"
+   shows 
+    "hnr (\<exists>\<^sub>At'. master_assn t \<or>\<^sub>A master_assn t') x  \<Gamma> xi"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  apply sep_auto
+  sorry
+  
+method hnr_transfer_diff_arr_rel = 
+  ((drule(1) transfer_diff_arr_rel)+)?, (thin_tac "\<forall>xs' xsi'. _ \<turnstile> xs' \<sim> xsi' \<longrightarrow> _ \<turnstile> xs' \<sim> xsi'")
+
+method hnr_extract_pure = 
+  normalize_hnr_pre?, ((rule hnr_extract_pure)+)?, hnr_transfer_diff_arr_rel?
 
 method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn])?
 
@@ -156,25 +299,14 @@ method frame_inference_2 = frame_prepare, frame_try_match+, frame_done
 method frame_inference_2_dbg = frame_prepare, (frame_try_match+)?, frame_done?
 
 method hnr_rule = 
-  (rule hnr_rule[framed] hnr_copy[framed] hnr_return[framed], (frame_inference'; fail))
-
-thm  hnr_return[of emp, framed]
+  (rule hnr_rule_arr[framed] hnr_copy[framed], frame_inference_2) | rule hnr_rule_raw hnr_return
 
 method hnr_rule_diff_arr =
   (rule hnr_rule_diff_arr[framed] hnr_copy[framed], frame_inference_2) | rule hnr_rule_raw hnr_return
 
-method hnr = (hnr_rule | keep_drop)+
+method hnr_arr = (hnr_extract_pure, (hnr_rule | keep_drop))+
 
-method hnr_diff_arr = (hnr_rule_diff_arr | keep_drop)+
-
-schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' ?R (test1 xs)"
-   unfolding test1_def
-   by hnr
-
-(* lemma norm_pre_ex_rule:
-  assumes A: "\<And>x. <P x> f <Q>"
-  shows "<\<exists>\<^sub>Ax. P x> f <Q>" 
-*)
+method hnr_diff_arr = (hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))+
 
 experiment
 begin
@@ -211,102 +343,79 @@ schematic_goal
 
 end
 
-
-(*method frame_inference_init_2 = ((rule hnr_extract_pure move_pure_right)+)? 
-method frame_inference_match_2 = ((rule hnr_pre_cong ent_refl)+)?
-
-method frame_inference_2 = frame_inference_init_2, frame_inference_match_2
-
-method hnr_rule_diff_arr_2 =
-  (rule hnr_rule_diff_arr[framed] hnr_copy[framed] hnr_return[framed], (frame_inference_2))*)
-
-schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' ?R (test1 xs)"
+schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (test1 xs)"
   unfolding test1_def 
-  by hnr
- 
-schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c :: ?'a Heap) ?\<Gamma>' ?R (test1 xs)"
-  unfolding test1_def
-  apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))+
-
+  apply hnr_arr
   done
 
-schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c :: ?'a Heap) ?\<Gamma>' ?R (test2 xs)"
-  unfolding test2_def
-  apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))+
-  done
-    apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-   apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-     apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-   apply(hnr_extract_pure)
-    apply(hnr_rule_diff_arr)
-    supply[[unify_trace_failure]]
-  supply[[show_main_goal]]
-  apply(rule hnr_return)
-  done
-
-  thm hnr_let[framed]
-  apply (hnr_rule_diff_arr)
-   apply(hnr_extract_pure)
-    apply (hnr_rule_diff_arr)
-   apply(hnr_extract_pure)
-      apply (hnr_rule_diff_arr) 
-   apply(hnr_extract_pure)
-     apply (hnr_rule_diff_arr)
-  apply(hnr_extract_pure)
-    apply keep_drop
-  apply(hnr_extract_pure)
-   apply(hnr_rule_diff_arr)
-  apply(hnr_extract_pure)
-     apply(hnr_rule_diff_arr)
-  apply(hnr_extract_pure)
-    apply(hnr_rule_diff_arr)
-  apply(hnr_extract_pure)
-      apply(hnr_rule_diff_arr)
-    apply(hnr_extract_pure)
-     apply(hnr_rule_diff_arr)
-    apply(hnr_extract_pure)
-       apply(hnr_rule_diff_arr)
-    apply(hnr_extract_pure)
-      apply(hnr_rule_diff_arr)
-        apply(hnr_extract_pure)
-        apply (rule hnr_rule_diff_arr[framed] hnr_copy[framed])
-  apply(frame_inference_2)
-        apply((hnr_rule_diff_arr | keep_drop))
-     
-  apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-         apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-        apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-       apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-      apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-     apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-    apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-apply(hnr_extract_pure, (hnr_rule_diff_arr | keep_drop))
-  done
-  back
-     apply frame_prepare
-  apply frame_try_match
-     apply(hnr_rule_diff_arr, frame_inference_2)
- apply(hnr_rule_diff_arr, frame_inference_2)
- apply(hnr_rule_diff_arr, frame_inference_2)
-  apply(hnr_rule_diff_arr, frame_inference_2)
- apply(hnr_rule_diff_arr, frame_inference_2_dbg)
-       apply(rule hnr_rule_diff_arr[framed])
-  apply normalize_hnr_pre
-        apply frame_inference_2
-   find_theorems "<\<exists>\<^sub>A _. _> _ <_>"
-       apply(simp only: ex_assn_move_out, intro hnr_exE)
-
-       apply hnr_rule_diff_arr
-         apply(rule hnr_rule_diff_arr[framed])
-    apply FI_keep
-   sorry
-
-schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' ?R (test2 xs)"
+schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (test2 xs)"
   unfolding test2_def 
-  apply hnr
-     apply(rule hnr_rule[framed])
-  apply frame_inference
+  apply hnr_arr
+  done  
+
+(* Can't work, not linear! *)
+schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (test3 xs)"
+  unfolding test3_def 
+  apply hnr_arr
   sorry
+
+schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c :: ?'a Heap) ?\<Gamma>' (test1 xs)"
+  unfolding test1_def
+  apply hnr_diff_arr
+  done
+
+schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c :: ?'a Heap) ?\<Gamma>' (test2 xs)"
+  unfolding test2_def
+  apply hnr_diff_arr
+  done
+
+schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c xsi :: ?'a Heap) (?\<Gamma>' xsi xs) (test3 xs)"
+  unfolding test3_def
+  apply hnr_diff_arr
+  done  
+
+schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c xsi :: ?'a Heap) (?\<Gamma>' xsi xs) (test4 xs)"
+  unfolding test4_def
+  apply hnr_diff_arr
+     apply (rule hnr_if)
+      apply hnr_diff_arr
+    apply(rule merge_if_2)
+    apply hnr_diff_arr
+  done
+
+lemma cool_rule: "(\<exists>\<^sub>A x y. P x) = (\<exists>\<^sub>A x. P x)"
+  by simp
+
+schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c xsi :: ?'a Heap) (?\<Gamma>' xsi xs) (test4_2 xs)"
+  unfolding test4_2_def
+  apply hnr_diff_arr
+     apply (rule hnr_if)
+      apply hnr_diff_arr
+  apply simp
+    apply(rule merge_if_2)
+    apply hnr_diff_arr
+  done
+
+schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c xsi :: ?'a Heap) (?\<Gamma>' xsi xs) (test7 xs)"
+  unfolding test7_def
+  apply hnr_diff_arr
+     apply (rule hnr_if)
+       apply hnr_diff_arr
+     apply sep_auto
+  subgoal sorry
+  subgoal sorry
+  subgoal sorry
+  subgoal sorry
+  sorry
+
+(* 
+  Questions/Notes: 
+  - Wouldn't it be more useful to always build up the master_assn instead of using existensials?
+  - How to integrate standard operations like + and -?
+  - transfer diff_arr_rel not directly in if for example
+  - use simp for more than one existensial
+*)
+
 
 export_code array_nth_safe array_update_safe in SML_imp
 

@@ -13,6 +13,10 @@ lemma htriple_frame_fwd:
   using assms
   by (metis cons_rule ent_refl fr_refl)
 
+lemma htriple_combine_post: "<P> c <Q> \<Longrightarrow> <P> c <Q'> \<Longrightarrow> <P> c <\<lambda>r. Q r \<and>\<^sub>A Q' r>"
+  unfolding hoare_triple_def
+  by(auto simp: Let_def mod_and_dist)
+
 method sep_drule uses r = 
   rule ent_frame_fwd[OF r] htriple_frame_fwd[OF r], (assumption+)?, frame_inference
 
