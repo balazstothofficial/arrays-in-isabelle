@@ -13,6 +13,12 @@ qualified definition from_array :: "('a::heap) array \<Rightarrow> 'a diff_arr H
     ref (Array a)
   }"
 
+qualified definition from_list :: "('a::heap) list \<Rightarrow> 'a diff_arr Heap" where
+  "from_list xs =  do {
+    a \<leftarrow> Array.of_list xs;
+    from_array a
+  }"
+
 qualified partial_function (heap) lookup :: "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a Heap" where
   "lookup diff_arr n = do {
       cell \<leftarrow> !diff_arr;
@@ -114,7 +120,7 @@ next
 qed 
 
 lemma from_array [sep_heap_rules]:
-    "<a \<mapsto>\<^sub>a xs>  Diff_Arr.from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
+    "<a \<mapsto>\<^sub>a xs> Diff_Arr.from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
   unfolding Diff_Arr.from_array_def master_assn_def diff_arr_rel_def
   apply vcg
   subgoal for r
@@ -122,6 +128,11 @@ lemma from_array [sep_heap_rules]:
     apply(subst exI[where x = "0"])
     by(sep_auto simp: ent_ex_postI[where x = "cell.Array a"])+
   done
+
+lemma from_list [sep_heap_rules]:
+    "<emp> Diff_Arr.from_list xs <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
+  unfolding Diff_Arr.from_list_def 
+  by sep_auto
 
 lemma from_array' [sep_heap_rules]: "
   <a \<mapsto>\<^sub>a xs * master_assn t>

@@ -17,6 +17,14 @@ lemma htriple_combine_post: "<P> c <Q> \<Longrightarrow> <P> c <Q'> \<Longrighta
   unfolding hoare_triple_def
   by(auto simp: Let_def mod_and_dist)
 
+lemma htriple_return_entails: "<P> return x <Q> \<Longrightarrow> P \<Longrightarrow>\<^sub>A Q x"
+  unfolding hoare_triple_def Let_def entails_def
+  using effect_returnI effect_run by fastforce
+
+lemma htriple_return_and: " \<lbrakk><\<Gamma>> return a <\<Gamma>\<^sub>a>; <\<Gamma>> return b <\<Gamma>\<^sub>b>\<rbrakk> \<Longrightarrow> \<Gamma> \<Longrightarrow>\<^sub>A \<Gamma>\<^sub>a a \<and>\<^sub>A \<Gamma>\<^sub>b b"
+  using htriple_return_entails[of \<Gamma> a \<Gamma>\<^sub>a] htriple_return_entails[of \<Gamma> b \<Gamma>\<^sub>b] ent_conjI
+  by auto
+
 method sep_drule uses r = 
   rule ent_frame_fwd[OF r] htriple_frame_fwd[OF r], (assumption+)?, frame_inference
 
