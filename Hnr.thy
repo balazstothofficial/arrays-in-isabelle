@@ -140,39 +140,10 @@ lemma hnr_tuple:
 lemma merge_and_1: "a \<and>\<^sub>A a = a"
   by auto
 
-
-lemma merge_and_2_3_1: "times_assn_raw (Rep_assn a) (Rep_assn (Abs_assn (\<lambda>h. h \<Turnstile> b \<and> h \<Turnstile> c))) h \<Longrightarrow> 
-      times_assn_raw (Rep_assn a) (Rep_assn b) h \<and> times_assn_raw (Rep_assn a) (Rep_assn c) h"
-  apply(induction "Rep_assn a" "Rep_assn (Abs_assn (\<lambda>h. h \<Turnstile> b \<and> h \<Turnstile> c))" h rule: times_assn_raw.induct)
-  using inf_assn_def mod_and_dist by auto
-
 lemma merge_and_2_3: "a * (b \<and>\<^sub>A c) \<Longrightarrow>\<^sub>A (a * b) \<and>\<^sub>A (a * c)"
   unfolding inf_assn_def times_assn_def entails_def
   apply auto
   by (metis ent_star_mono entails_def inf_assn_def mod_and_dist times_assn_def)
-
-(*lemma merge_and_2_2_1: "h \<Turnstile> Abs_assn (times_assn_raw (Rep_assn a) (Rep_assn b)) \<and>
-             h \<Turnstile> Abs_assn (times_assn_raw (Rep_assn a) (Rep_assn c)) 
-  \<Longrightarrow> times_assn_raw (Rep_assn a) (Rep_assn (Abs_assn (\<lambda>h. h \<Turnstile> b \<and> h \<Turnstile> c))) h"
-  apply(auto simp: Abs_assn_inverse)
-  apply(induction "Rep_assn a" "Rep_assn b" h rule: times_assn_raw.induct)
-  apply auto
-  subgoal for h as1 as1a as2 as2a
-    apply(subst exI[where x = as1])
-     apply(subst exI[where x = "as2a"])
-      apply auto
-    sorry
-  sorry
-
-lemma merge_and_2_2: "(a * b) \<and>\<^sub>A (a * c) \<Longrightarrow>\<^sub>A a * (b \<and>\<^sub>A c)"
-  unfolding inf_assn_def times_assn_def entails_def 
-  apply auto
-  using Abs_assn_inverse merge_and_2_2_1 by force
-
-lemma merge_and_2: "(a * b) \<and>\<^sub>A (a * c) = a * (b \<and>\<^sub>A c)"
-  unfolding inf_assn_def times_assn_def
-  apply(auto simp: Abs_assn_inverse)
-  sorry *)
 
 lemma hnr_tuple_2[hnr_rule]:
   assumes
@@ -198,11 +169,6 @@ lemma hnr_frame:
     "hnr \<Gamma>\<^sub>P fi (\<lambda> r ri. \<Gamma>' r ri * F) f"
   apply(rule hnrI)
   by (smt (verit) assms(1) assms(2) assn_aci(10) fi_rule hnrD hoare_triple_def)
-
-(* lemma merge_or: "a * x * b \<or>\<^sub>A c * x * d = x * (a * b \<or>\<^sub>A c * d)"
-  by (simp add: star_aci(2) star_aci(3) star_or_dist2)
-
-lemmas merge_ors = merge_or merge_or[of emp] *)
 
 attribute_setup framed =
     \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [asm_rl, thm]))\<close>
@@ -402,20 +368,10 @@ lemma hnr_or_no_match_1:
 lemma id: "A = A"
   by simp
 
-(* lemma frame_no_match: 
-  assumes
-    "Ps1 * (P * Ps2) \<Longrightarrow>\<^sub>A Qs * Q * F"
-  shows
-    "Ps1 * P * Ps2 \<Longrightarrow>\<^sub>A Qs * Q * F"
-  using assms
-  by (simp add: mult.assoc) *)
-
 method normalize_hnr_pre = simp(no_asm) named_ss HOL_basic_ss_nomatch:
     move_pure_right assn_one_left mult_1_right[where 'a=assn] 
     merge_pure_star[symmetric] ex_assn_move_out pure_true
   cong: hnr_pre_cong
-
-find_theorems "\<not>_" "(\<noteq>)"
 
 method normalize_or_hnr_pre uses cong = simp(no_asm) named_ss HOL_basic_ss_nomatch:
     assn_one_left mult_1_right[where 'a=assn] (* TODO Name: *) move_pure_right(1)
@@ -441,48 +397,6 @@ lemma ex_or: "(\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b) = (\<exists>\<^sub>
 lemma ex_or_x: "(\<exists>\<^sub>Aa. P a \<or>\<^sub>A P b) \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Aa. P a)"
   by (simp add: ent_disjE ent_ex_preI)
 
-(* 
-lemma hnr_if: 
-  assumes
-    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
-    "hnr \<Gamma> bi \<Gamma>\<^sub>b b"
-  shows 
-    "hnr 
-      \<Gamma> 
-      (if c then ai else bi) 
-      (\<lambda>a r. \<Gamma>\<^sub>a a r * \<up> c \<or>\<^sub>A \<Gamma>\<^sub>b a r * \<up>(\<not>c)) 
-      (if c then a else b)" 
-  supply[sep_heap_rules] = assms[THEN hnrD]
-  apply(rule hnrI)
-  by(sep_auto simp: ent_star_mono)*)
-
-(* lemma merge_if_1:
-  assumes 
-    "c" 
-    "hnr \<Gamma>\<^sub>a x \<Gamma> xi" 
-  shows 
-   "hnr (\<Gamma>\<^sub>a * \<up> c \<or>\<^sub>A \<Gamma>\<^sub>b * \<up>(\<not>c)) x \<Gamma> xi" 
-  using assms
-  by sep_auto
-
-lemma merge_if_2:
-  assumes 
-    "\<not>c" 
-    "hnr \<Gamma>\<^sub>b x \<Gamma> xi" 
-   shows 
-    "hnr (\<Gamma>\<^sub>a * \<up> c \<or>\<^sub>A \<Gamma>\<^sub>b * \<up>(\<not>c)) x  \<Gamma> xi"
-  using assms
-  by sep_auto
-
-lemma merge_if_fallback:
-  assumes 
-    "hnr true x \<Gamma> xi" 
-   shows 
-    "hnr (\<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b) x  \<Gamma> xi"
-  apply(rule hnrI)
-  using assms[THEN hnrD]
-  using cons_pre_rule ent_true by blast *)
-
 (* Steps for merging: 
   1. Simply or [merge_or] and bring \<exists>. to the outside (if possible combine \<exists> already)
   2. Match real t with \<exists>. to \<exists>.
@@ -490,89 +404,6 @@ lemma merge_if_fallback:
 *)
 
 
-
-(* lemma merge_if_1:
-  assumes 
-    "hnr (\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi)) x \<Gamma> xi" 
-   shows 
-    "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi) \<or>\<^sub>A (\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))) x  \<Gamma> xi"
-  apply(rule hnrI)
-  apply(rule split_rule)
-  using cons_pre_rule assms[THEN hnrD] apply fastforce
-  using assms[THEN hnrD] by simp
-
-(* 
-   hnr (master_assn t * \<up> (t \<turnstile> t1 \<sim> xia) * emp * \<up> True \<or>\<^sub>A
-                (\<exists>\<^sub>At'.
-                    master_assn t' *
-                    \<up> ((\<forall>xs' xsi'. t \<turnstile> xs' \<sim> xsi' \<longrightarrow> t' \<turnstile> xs' \<sim> xsi') \<and> t' \<turnstile> t1 \<sim> xia)) *
-                emp *
-                \<up> (\<not> True))
-*)
-
-lemma merge_if_2:
-  assumes 
-    "hnr ((\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))) x \<Gamma> xi" 
-   shows 
-    "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi) * emp \<or>\<^sub>A 
-          (\<exists>\<^sub>At'. master_assn t' * \<up>(t' \<turnstile> xs \<sim> xsi))) x  \<Gamma> xi"
-  apply(rule hnrI)
-  apply(rule split_rule)
-  using cons_pre_rule assms[THEN hnrD]
-  apply fastforce
-  using assms[THEN hnrD] cons_pre_rule by sep_auto
-
-find_theorems "(\<Longrightarrow>\<^sub>A)" "\<exists>\<^sub>A _ . _"
-
-
-
-lemma t: assumes "P" shows "P" using assms by simp
-
-lemma wtf_1: "fold_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. fold_assn x" 
-  by simp
-
-lemma wtf_2: "master_assn t = master_assn t"
-  by auto
-
-lemma wtf_5: "master_assn t \<Longrightarrow>\<^sub>A master_assn t"
-  by auto
-
-lemma wtf_6: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn t"
-  by auto
-
-lemma wtf_8: assumes "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
-  shows "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
-  using assms
-  sorry
-
-lemma wtf_7: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
-  using triv_exI[of master_assn t]
-  sorry
-
-lemma merge_or_master_assn_1_1:
-  assumes 
-    "hnr (\<exists>\<^sub>At'. master_assn t') x \<Gamma> xi"
-   shows 
-    "hnr (master_assn t \<or>\<^sub>A (\<exists>\<^sub>At'. master_assn t')) x \<Gamma> xi"
-  apply(rule hnrI)
-  apply(rule split_rule)
-  using cons_pre_rule[of "master_assn t" "\<exists>\<^sub>At'. master_assn t'" x  "(\<lambda>b. \<Gamma> xi b * true)"] assms[THEN hnrD] 
-  using wtf_7[of t]
-   apply blast
-  using assms[THEN hnrD]
-  apply blast
-  sorry
-
-lemma merge_or_master_assn_1:
-  assumes 
-    "hnr (\<exists>\<^sub>At'. master_assn t') x \<Gamma> xi"
-   shows 
-    "hnr (\<exists>\<^sub>At'. master_assn t \<or>\<^sub>A master_assn t') x  \<Gamma> xi"
-  apply(rule hnrI)
-  using assms[THEN hnrD]
-  apply sep_auto
-  sorry *)
-  
 method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn])?
 
 method frame_prepare = rule prepare_frame_1, frame_norm_assoc

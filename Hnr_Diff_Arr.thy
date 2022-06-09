@@ -77,4 +77,15 @@ method hnr_transfer_diff_arr_rel =
 
 method hnr_diff_arr = hnr hnr_transfer_diff_arr_rel rule_set: hnr_rule_diff_arr
 
+lemma bug_1: 
+  assumes "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
+  shows "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
+  using assms
+  sorry
+
+lemma bug_2: "master_assn t \<Longrightarrow>\<^sub>A \<exists>\<^sub>Ax. master_assn x"
+  using triv_exI[of master_assn t]
+  apply auto
+  sorry
+
 end

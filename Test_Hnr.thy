@@ -125,13 +125,13 @@ schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c xs
     apply hnr_diff_arr
   sorry *)
 
-lemma cool_rule: "(\<exists>\<^sub>A x y. P x) = (\<exists>\<^sub>A x. P x)"
-  by simp
-
 schematic_goal "hnr (master_assn t * \<up>(t \<turnstile> xs \<sim> xsi)) (?c xsi :: ?'a Heap) (?\<Gamma>' xsi xs) (test4_2 xs)"
   unfolding test4_2_def
   apply hnr_diff_arr
-  apply or_match+   
+  apply or_match 
+  apply or_match 
+  apply or_match 
+  apply(hnr_extract_pure -)
   subgoal sorry       
   subgoal sorry
   subgoal sorry
