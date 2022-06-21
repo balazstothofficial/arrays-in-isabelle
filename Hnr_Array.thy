@@ -14,13 +14,16 @@ lemma hnr_new:
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_array_of_list: 
+definition New_Arr where
+  "New_Arr xs = xs"
+
+lemma hnr_array_of_list [hnr_rule_arr]: 
   "hnr 
     emp
     (Array.of_list xs) 
     (\<lambda>xs xsi. xsi \<mapsto>\<^sub>a xs) 
-    xs"
-  unfolding id_rel_def
+    (New_Arr xs)"
+  unfolding id_rel_def New_Arr_def
   apply(rule hnrI)
   by sep_auto
 
@@ -48,6 +51,10 @@ lemma hnr_copy_arr [hnr_rule_arr]:
   "hnr (array_assn x xi) (return xi) array_assn x"
   using hnr_pass by fastforce
 
-method hnr_arr = hnr - rule_set: hnr_rule_arr
+method refl = rule ent_refl
+
+method hnr_arr = hnr refl refl rule_set: hnr_rule_arr
+
+method hnr_step_arr = hnr_step refl refl rule_set: hnr_rule_arr
 
 end

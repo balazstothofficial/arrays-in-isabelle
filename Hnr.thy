@@ -29,7 +29,12 @@ lemma keep_drop_1:
   apply(sep_drule r: assms(2))
   by sep_auto
 
-lemma keep_drop_2: "A \<Longrightarrow>\<^sub>A A * emp"
+lemma keep_drop_2: 
+  assumes
+    "A \<Longrightarrow>\<^sub>A A'"
+  shows
+    "A \<Longrightarrow>\<^sub>A A' * emp"
+  using assms
   by sep_auto
 
 lemma keep_drop_3: "A \<Longrightarrow>\<^sub>A emp * A"
@@ -37,80 +42,70 @@ lemma keep_drop_3: "A \<Longrightarrow>\<^sub>A emp * A"
 
 lemmas keep_drop_step = keep_drop_1 keep_drop_2 keep_drop_3
 
-definition keep_drop where "keep_drop \<Gamma> K D \<equiv> \<Gamma> \<Longrightarrow>\<^sub>A K * D"
+definition Keep_Drop where "Keep_Drop \<Gamma> K D \<equiv> \<Gamma> \<Longrightarrow>\<^sub>A K * D"
+
+definition Keep_Drop_Simp where
+  "Keep_Drop_Simp a b \<equiv> a \<Longrightarrow>\<^sub>A b"
 
 lemma keep_drop_init:
   assumes
-    "\<Gamma>  \<Longrightarrow>\<^sub>A K' * D'"
-    "K' \<Longrightarrow>\<^sub>A K"
-    "D' \<Longrightarrow>\<^sub>A D"
+    "\<Gamma>  \<Longrightarrow>\<^sub>A K * D"
   shows
-    "keep_drop \<Gamma> K D"
-  unfolding keep_drop_def
-  using assms(1) assms(2) assms(3) ent_star_mono ent_trans by blast
+    "Keep_Drop \<Gamma> K D"
+  unfolding Keep_Drop_def
+  using assms(1) ent_star_mono ent_trans by blast
 
-method keep_drop_simp = (simp only: star_aci)?; rule ent_refl
+lemma keep_drop_simpI: "a \<Longrightarrow>\<^sub>A b \<Longrightarrow> Keep_Drop_Simp a b"
+  unfolding Keep_Drop_Simp_def
+  by simp
 
-method keep_drop = 
-  rule keep_drop_init, ((rule keep_drop_step)+; fail), keep_drop_simp, keep_drop_simp
+method keep_drop_simp = rule keep_drop_simpI, (simp only: star_aci)?; rule ent_refl
+
+method keep_drop_step methods keep_atom = 
+  rule keep_drop_1 | (rule keep_drop_2, keep_atom) | rule keep_drop_3
+
+method keep_drop methods keep_atom = 
+  rule keep_drop_init, ((keep_drop_step keep_atom)+; fail)
 
 lemma hnr_let[hnr_rule]:
   assumes 
     "hnr \<Gamma> vi \<Gamma>\<^sub>1 v" 
     "\<And>xi x. hnr (\<Gamma>\<^sub>1 x xi) (fi xi) (\<Gamma>' x xi) (f x)"
-    "\<And>xi x ri r. keep_drop (\<Gamma>' x xi r ri) (\<Gamma>'' r ri) (\<Gamma>\<^sub>1' x xi r ri)"
+    "\<And>xi x ri r. Keep_Drop (\<Gamma>' x xi r ri) (\<Gamma>'' r ri) (\<Gamma>\<^sub>1' x xi r ri)"
+    "\<And>r ri. Keep_Drop_Simp (\<Gamma>'' r ri) (\<Gamma>''' r ri)" 
   shows 
-    "hnr \<Gamma> (do { x \<leftarrow> vi; fi x }) \<Gamma>'' (let x = v in f x)"
+    "hnr \<Gamma> (do { x \<leftarrow> vi; fi x }) \<Gamma>''' (let x = v in f x)"
   supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
   apply(rule hnrI)
   apply sep_auto
-  apply(sep_drule r: assms(3)[unfolded keep_drop_def])
+  apply(sep_drule r: assms(3)[unfolded Keep_Drop_def])
+  apply(sep_drule r: assms(4)[unfolded Keep_Drop_Simp_def])
   by sep_auto
 
-lemma hnr_if: 
-  assumes
-    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
-    "hnr \<Gamma> bi \<Gamma>\<^sub>b b"
-  shows 
-    "hnr 
-      \<Gamma> 
-      (if c then ai else bi) 
-      (\<lambda>a r. \<Gamma>\<^sub>a a r \<or>\<^sub>A \<Gamma>\<^sub>b a r) 
-      (if c then a else b)" 
-  supply[sep_heap_rules] = assms[THEN hnrD]
-  apply(rule hnrI)
-  by(sep_auto simp: ent_star_mono)
+definition Merge where
+  "Merge a b c \<equiv> a \<or>\<^sub>A b \<Longrightarrow>\<^sub>A c"
 
-lemma hnr_if': 
+lemma hnr_if[hnr_rule]: 
   assumes
     "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
     "hnr \<Gamma> bi \<Gamma>\<^sub>b b"
+    "\<And>a r. Merge (\<Gamma>\<^sub>a a r) (\<Gamma>\<^sub>b a r) (\<Gamma>\<^sub>c a r)"
   shows 
     "hnr 
       \<Gamma> 
       (if c then ai else bi) 
-      (\<lambda>a r. \<Gamma>\<^sub>a a r * \<up>c \<or>\<^sub>A \<Gamma>\<^sub>b a r * \<up>(\<not>c)) 
+      \<Gamma>\<^sub>c 
       (if c then a else b)" 
-  supply[sep_heap_rules] = assms[THEN hnrD]
+  supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
   apply(rule hnrI)
-  by(sep_auto simp: ent_star_mono)
-
-lemma hnr_if''[hnr_rule]: 
-  assumes
-    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
-    "hnr \<Gamma> bi \<Gamma>\<^sub>b b"
-  shows 
-    "hnr 
-      \<Gamma> 
-      (if c then ai else bi) 
-      (\<lambda>a r. (\<up>c * \<Gamma>\<^sub>a a r  \<or>\<^sub>A \<up>(\<not>c) * \<Gamma>\<^sub>b a r) * emp) 
-      (if c then a else b)" 
-  supply[sep_heap_rules] = assms[THEN hnrD]
-  apply(rule hnrI)
-  by(sep_auto simp: ent_star_mono)
+  using assms(3)
+  unfolding Merge_def
+  apply(sep_auto simp: ent_star_mono)
+  using ent_disjI1 fr_refl apply blast
+  apply sep_auto
+  using ent_disjI2 fr_refl by blast
 
 lemma hnr_pass: "hnr (A x xi) (return xi) A x"
-  unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
@@ -119,7 +114,30 @@ lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn x"
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_tuple: 
+
+(* TODO: Cases *)
+
+lemma hnr_case_tuple [hnr_rule]:
+  assumes 
+    "\<And>a ai b bi. hnr \<Gamma> (ci ai bi) \<Gamma>' (c a b)"
+  shows
+    "hnr \<Gamma> (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>' (case x of (a, b) \<Rightarrow> c a b)"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  by(sep_auto simp: split_beta)
+
+(* TODO: Should I use a merge? *)
+lemma hnr_case_nat [hnr_rule]:
+  assumes 
+    "hnr \<Gamma> ci0 \<Gamma>' c0"
+    "\<And>n. hnr \<Gamma> (ci n) \<Gamma>' (c n)"
+  shows
+    "hnr \<Gamma> (case n of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>' (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  by(sep_auto split: nat.splits) 
+
+lemma hnr_tuple [hnr_rule]: 
   assumes
     "hnr \<Gamma> (return ai) \<Gamma>\<^sub>a a"
     "hnr (\<Gamma>\<^sub>a a ai * true) (return bi) (\<Gamma>\<^sub>b a ai) b"
@@ -137,29 +155,19 @@ lemma hnr_tuple:
     ent_trans[of \<Gamma>]
   by sep_auto
 
-lemma merge_and_1: "a \<and>\<^sub>A a = a"
-  by auto
+(* TODO: Fallback *)
+lemma id: "id f (id a) (id b) \<Longrightarrow> f a b"
+  by simp
 
-lemma merge_and_2_3: "a * (b \<and>\<^sub>A c) \<Longrightarrow>\<^sub>A (a * b) \<and>\<^sub>A (a * c)"
-  unfolding inf_assn_def times_assn_def entails_def
-  apply auto
-  by (metis ent_star_mono entails_def inf_assn_def mod_and_dist times_assn_def)
+lemma "c1 = c1"
+  apply(fo_rule id)
+  by auto 
 
-lemma hnr_tuple_2[hnr_rule]:
-  assumes
-    "hnr \<Gamma> (return ai) \<Gamma>\<^sub>a a"
-    "hnr \<Gamma> (return bi) \<Gamma>\<^sub>b b"
-  shows 
-    "hnr 
-      \<Gamma>
-      (return (ai, bi))
-      (\<lambda>(a, b)(ai, bi). \<Gamma>\<^sub>a a ai * true \<and>\<^sub>A \<Gamma>\<^sub>b b bi * true)
-      (a, b)"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  using htriple_return_and[of \<Gamma> ai "\<lambda>ai. \<Gamma>\<^sub>a a ai * true" bi "\<lambda>bi. \<Gamma>\<^sub>b b bi * true"] ent_true_drop(2)
-  by sep_auto
+lemma fallback_0: "hnr \<Gamma> (return f) (\<lambda>_ _. \<Gamma>) f"
+  by(rule hnr_pass)
+
+lemma fallback_1: "hnr \<Gamma> (return (f x)) (\<lambda>_ _. \<Gamma>) (f x)"
+  by(rule hnr_pass)
 
 lemma hnr_frame:
   assumes
@@ -173,79 +181,6 @@ lemma hnr_frame:
 attribute_setup framed =
     \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [asm_rl, thm]))\<close>
     \<open>Add frame to hnr rule\<close>
-
-lemma frame_inference_trivial: "P \<Longrightarrow>\<^sub>A P * emp"
-  by sep_auto
-
-method frame_inference' = rule frame_inference_trivial | frame_inference
-
-lemma move_pure_right: 
-  "a * (b * c) = (a * b) * c" 
-  "NO_MATCH (\<up>(x)) b \<Longrightarrow> \<up>(p) * b = b * \<up>(p)"
-  "NO_MATCH (\<up>(x)) b \<Longrightarrow> a * \<up>(p) * b = a * b * \<up>(p)"
-  by(auto simp: algebra_simps) 
-
-lemma merge_ex: 
-  "(\<exists>\<^sub>Aa _. P a) = (\<exists>\<^sub>Aa. P a)"
-  "(\<exists>\<^sub>A_ a. P a) = (\<exists>\<^sub>Aa. P a)"
-  by simp_all
-
-lemma hnr_pre_cong: "\<Gamma> = \<Gamma>' \<Longrightarrow> hnr \<Gamma> c \<Gamma>'' a = hnr \<Gamma>' c \<Gamma>'' a"
-  by simp
-
-lemma hnr_pre_cong_or_1: "\<lbrakk>\<Gamma>\<^sub>a = \<Gamma>\<^sub>a'; \<Gamma>\<^sub>b = \<Gamma>\<^sub>b'\<rbrakk>
-   \<Longrightarrow> hnr (\<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b) c \<Gamma>'' a = hnr (\<Gamma>\<^sub>a' \<or>\<^sub>A \<Gamma>\<^sub>b') c \<Gamma>'' a"
-  by simp
-
-lemma hnr_pre_cong_or_2: "\<lbrakk>\<Gamma>\<^sub>a = \<Gamma>\<^sub>a'; \<Gamma>\<^sub>b = \<Gamma>\<^sub>b'\<rbrakk>
-   \<Longrightarrow> hnr ((\<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b) * \<Gamma>\<^sub>c)  c \<Gamma>'' a = hnr ((\<Gamma>\<^sub>a' \<or>\<^sub>A \<Gamma>\<^sub>b') * \<Gamma>\<^sub>c) c \<Gamma>'' a"
-  by simp
-
-lemmas hnr_pre_cong_or = hnr_pre_cong_or_1 hnr_pre_cong_or_2
-
-lemma hnr_pre_cong_or_first_1: "\<lbrakk>\<Gamma>\<^sub>a = \<Gamma>\<^sub>a'\<rbrakk>
-   \<Longrightarrow> hnr (\<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b) c \<Gamma>'' a = hnr (\<Gamma>\<^sub>a' \<or>\<^sub>A \<Gamma>\<^sub>b) c \<Gamma>'' a"
-  by simp
-
-lemma hnr_pre_cong_or_first_2: "\<lbrakk>\<Gamma>\<^sub>a = \<Gamma>\<^sub>a'\<rbrakk>
-   \<Longrightarrow> hnr ((\<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b) * \<Gamma>\<^sub>c)  c \<Gamma>'' a = hnr ((\<Gamma>\<^sub>a' \<or>\<^sub>A \<Gamma>\<^sub>b) * \<Gamma>\<^sub>c) c \<Gamma>'' a"
-  by simp
-
-lemmas hnr_pre_cong_or_first = hnr_pre_cong_or_first_1 hnr_pre_cong_or_first_2
-
-lemma hnr_extract_pure_1:
-  assumes
-    "p \<Longrightarrow> hnr \<Gamma> c \<Gamma>' a"
-  shows 
-    "hnr (\<Gamma> * \<up>(p)) c \<Gamma>' a"
-  using assms 
-  unfolding hnr_def
-  apply(cases p) 
-  by auto
-
-lemma hnr_extract_pure_2:
-  assumes
-    "p \<Longrightarrow> hnr emp c \<Gamma>' a"
-  shows 
-    "hnr (\<up>(p)) c \<Gamma>' a"
-  using assms 
-  unfolding hnr_def
-  apply(cases p) 
-  by auto
-
-lemma hnr_exE:
-   assumes
-   "\<And>x. hnr (P x) c (\<Gamma>' x) a"
-  shows 
-    "hnr (\<exists>\<^sub>Ax. P x) c (\<lambda>u v. \<exists>\<^sub>Ax. \<Gamma>' x u v) a"
-  using assms
-  unfolding hnr_def
-  apply(sep_auto)
-  apply(rule cons_post_rule)
-   apply blast 
-  by solve_entails
-
-lemmas hnr_extract_pure = hnr_extract_pure_1 hnr_extract_pure_2 hnr_exE
 
 lemma prepare_frame_1:
   assumes
@@ -265,20 +200,20 @@ lemma frame_no_match:
 
 lemma frame_match_pure:
   assumes
-    "P"
-    "Ps \<Longrightarrow>\<^sub>A Qs * F"
+    "Ps1 * \<up>(P) * Ps2 \<Longrightarrow>\<^sub>A Qs * F"
   shows
-    "Ps \<Longrightarrow>\<^sub>A Qs * \<up>(P) * F"
+    "Ps1 * \<up>(P) * Ps2 \<Longrightarrow>\<^sub>A Qs * \<up>(P) * F"
   using assms
   by simp
 
 lemma frame_match:
   assumes
+    "P \<Longrightarrow>\<^sub>A Q"
     "Ps1 * Ps2 \<Longrightarrow>\<^sub>A Qs * F"
   shows
-    "Ps1 * P * Ps2 \<Longrightarrow>\<^sub>A Qs * P * F"
+    "Ps1 * P * Ps2 \<Longrightarrow>\<^sub>A Qs * Q * F"
   using assms
-  by (metis assn_aci(10) fr_refl)
+  by (metis assn_aci(10) ent_star_mono)
 
 lemma frame_match_emp:
    assumes
@@ -291,137 +226,22 @@ lemma frame_match_emp:
 lemma frame_done: "F * emp \<Longrightarrow>\<^sub>A emp * F" 
   by sep_auto
 
-lemma ex_assn_move_in:
-  "\<And>Q R. (\<exists>\<^sub>Ax. Q x * R) = (\<exists>\<^sub>Ax. Q x) * R"
-  "\<And>Q R. (\<exists>\<^sub>Ax. Q * R x) = Q * (\<exists>\<^sub>Ax. R x)"
-  "(\<exists>\<^sub>Ax. Q x * R x) = (\<exists>\<^sub>Ax. Q x) * (\<exists>\<^sub>Ax. R x)" 
-   apply sep_auto
-   apply sep_auto
-  (* TODO Important: How to have rule just in one direction? *)
-  sorry
-
-lemma hnr_or_match_1:
-  assumes
-    "hnr ((As1 * As2 \<or>\<^sub>A Bs1 * Bs2) * (A * Cs)) fi \<Gamma>' f"
-  shows
-    "hnr ((As1 * A * As2 \<or>\<^sub>A Bs1 * A * Bs2) * Cs) fi \<Gamma>' f"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  by (metis star_aci(3) star_assoc star_or_dist2)
-
-lemma hnr_or_match_2:
-  assumes
-    "hnr ((As1 * As2 \<or>\<^sub>A Bs1 * Bs2) * ((\<exists>\<^sub>A x. A x) * Cs)) fi \<Gamma>' f"
-  shows
-    "hnr ((As1 * (\<exists>\<^sub>A x. A x) * As2 \<or>\<^sub>A Bs1 * A x * Bs2) * Cs) fi \<Gamma>' f"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  by (smt (verit, ccfv_threshold) assn_aci(10) assn_times_comm cons_pre_rule ent_disjE ent_disjI1_direct ent_disjI2' fr_refl star_or_dist1 triv_exI)
-
-lemma hnr_or_match_3:
-  assumes
-    "hnr ((As1 * As2 \<or>\<^sub>A Bs1 * Bs2) * ((\<exists>\<^sub>A x. A x) * Cs)) fi \<Gamma>' f"
-  shows
-    "hnr ((As1 * A x * As2 \<or>\<^sub>A Bs1 * (\<exists>\<^sub>A x. A x) * Bs2) * Cs) fi \<Gamma>' f"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  sorry
-  (* TODO: 
-  by (smt (verit, ccfv_SIG) SLN_right ac_operator.right_commute cons_pre_rule ent_disjE ent_disjI1_direct ent_disjI2_direct ent_frame_fwd ent_star_mono fr_refl keep_drop_2 mult.ac_operator_axioms triv_exI)
-  *)
-
-lemma hnr_or_match_4:
-  assumes
-    "hnr Cs fi \<Gamma>' f"
-  shows
-    "hnr ((\<up>c * emp \<or>\<^sub>A \<up>(\<not>c) * emp) * Cs) fi \<Gamma>' f"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  by simp
-
-lemmas hnr_or_match = hnr_or_match_1 hnr_or_match_2 hnr_or_match_3 hnr_or_match_4
-
-lemma hnr_or_prepare:
-  assumes
-    "hnr ((As * emp \<or>\<^sub>A Bs * emp) * Cs) fi \<Gamma>' f"
-  shows
-    "hnr ((As \<or>\<^sub>A Bs) * Cs) fi \<Gamma>' f"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  by simp
-
-lemma hnr_or_no_match_1:
-  assumes
-    "hnr ((As1 * (A * As2) \<or>\<^sub>A Bs1 * B * Bs2) * Cs) fi \<Gamma>' f"
-  shows
-    "hnr ((As1 * A * As2 \<or>\<^sub>A Bs1 * B * Bs2) * Cs) fi \<Gamma>' f"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-  by (simp add: mult.left_assoc)
-
-lemma id: "A = A"
-  by simp
-
-method normalize_hnr_pre = simp(no_asm) named_ss HOL_basic_ss_nomatch:
-    move_pure_right assn_one_left mult_1_right[where 'a=assn] 
-    merge_pure_star[symmetric] ex_assn_move_out pure_true
-  cong: hnr_pre_cong
-
-method normalize_or_hnr_pre uses cong = simp(no_asm) named_ss HOL_basic_ss_nomatch:
-    assn_one_left mult_1_right[where 'a=assn] (* TODO Name: *) move_pure_right(1)
-    merge_pure_star[symmetric] ex_assn_move_in pure_true merge_ex
-  cong: cong
-
-method hnr_or_no_match = then_else 
-  \<open>rule hnr_or_no_match_1\<close> 
-  \<open>rule id\<close> 
-  \<open>normalize_or_hnr_pre cong: hnr_pre_cong_or_first, rule hnr_or_prepare\<close>
-
-
-lemma ex_or1: "(\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b) \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Aa. P a)"
-  by (simp add: ent_disjE ent_ex_preI)
- 
-lemma ex_or2: "(\<exists>\<^sub>Aa. P a) \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b)"
-  by (meson ent_disjI1_direct ent_ex_postI ent_ex_preI)
-
-lemma ex_or: "(\<exists>\<^sub>Aa b. P a  \<or>\<^sub>A P b) = (\<exists>\<^sub>Aa. P a)"
-  apply(rule ent_iffI)
-  using ex_or1 ex_or2 by auto
-
-lemma ex_or_x: "(\<exists>\<^sub>Aa. P a \<or>\<^sub>A P b) \<Longrightarrow>\<^sub>A (\<exists>\<^sub>Aa. P a)"
-  by (simp add: ent_disjE ent_ex_preI)
-
-(* Steps for merging: 
-  1. Simply or [merge_or] and bring \<exists>. to the outside (if possible combine \<exists> already)
-  2. Match real t with \<exists>. to \<exists>.
-  3. Rest: c \<rightarrow> X * \<not>c \<rightarrow> Y (Does it work like this?)
-*)
-
-
 method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn])?
 
 method frame_prepare = rule prepare_frame_1, frame_norm_assoc
 
-method frame_try_match = then_else 
-  \<open>rule frame_match_pure, assumption | rule frame_match frame_match_emp\<close> 
+method frame_try_match methods match_atom = then_else 
+  \<open>rule frame_match_pure | rule frame_match, (match_atom; fail) | rule frame_match_emp\<close> 
   \<open>frame_norm_assoc\<close> 
-  \<open>rule frame_no_match, frame_try_match\<close>
-
-method or_match = 
-  (normalize_or_hnr_pre cong: hnr_pre_cong_or, rule hnr_or_prepare), 
-  (rule hnr_or_match | hnr_or_no_match) 
+  \<open>rule frame_no_match, frame_try_match match_atom\<close>
 
 method frame_done = simp only: assn_one_left mult_1_right[where 'a=assn], rule ent_refl  
 
-method frame_inference_2 = frame_prepare, frame_try_match+, frame_done
+method frame_inference_2 methods match_atom =
+  frame_prepare, (frame_try_match match_atom)+, frame_done
 
-method frame_inference_2_dbg = frame_prepare, (frame_try_match+)?, frame_done?
+method frame_inference_2_dbg methods match_atom = 
+  frame_prepare, ((frame_try_match match_atom)+)?, frame_done?
 
 experiment
 begin
@@ -429,40 +249,48 @@ begin
 schematic_goal 
   fixes a b c d::assn
   shows "a * b * c * d \<Longrightarrow>\<^sub>A a * c * ?F"
-    apply frame_inference_2
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   fixes a b c d::assn
   shows "a * b * c * d \<Longrightarrow>\<^sub>A emp * ?F"
-   apply frame_inference_2
+   apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   fixes a b c d::assn
   shows "emp \<Longrightarrow>\<^sub>A emp * ?F"
-   apply frame_inference_2
+   apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   fixes a b c d::assn
   shows "a * b * c * d \<Longrightarrow>\<^sub>A b * d * ?F"
-   apply frame_inference_2
+   apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   shows "a * \<up>(b) * c * d \<Longrightarrow>\<^sub>A \<up>(b) * d * ?F"
-   apply frame_inference_2
+   apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 end
 
-method hnr_extract_pure methods post_processing = 
-  normalize_hnr_pre?, ((rule hnr_extract_pure)+)?, post_processing?
+lemma merge_refl: "Merge a a a"
+  unfolding Merge_def
+  by simp
 
-method hnr_rule uses rule_set = 
-  (rule rule_set[framed] hnr_copy[framed], frame_inference_2) | rule hnr_rule hnr_return
+(* TODO: Merge just works if there is no tuple involved *)
+method merge = (simp only: star_aci)?, rule merge_refl
 
-method hnr methods assumption_processing uses rule_set =
-  (hnr_extract_pure assumption_processing, ((hnr_rule rule_set: rule_set) | keep_drop))+
+method hnr_rule methods frame_match_atom uses rule_set = 
+  (rule rule_set[framed] hnr_copy[framed], frame_inference_2 frame_match_atom) 
+ | rule hnr_rule hnr_return
 
+method hnr_step methods frame_match_atom keep_atom uses rule_set =
+   (hnr_rule frame_match_atom rule_set: rule_set) | keep_drop keep_atom | keep_drop_simp | merge
+
+method hnr methods frame_match_atom keep_atom uses rule_set =
+  (hnr_step frame_match_atom keep_atom rule_set: rule_set)+
+  
 end
