@@ -29,7 +29,6 @@ next
 qed
 
 lemma cell_assn_upd [simp]: "cell_assn (Upd' i x p) c = \<up>(c = Upd i x p)"
-  apply(cases c)
-  by auto
+  by(cases c) auto
 
 end

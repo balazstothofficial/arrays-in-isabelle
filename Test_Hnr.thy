@@ -1,5 +1,5 @@
 theory Test_Hnr
-  imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" 
+  imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" Definition_Utils
 begin
 
 definition sequential_1 where
@@ -27,6 +27,10 @@ definition return_tuple_2 where
 definition return_tuple_3 where
   "return_tuple_3 xs = 
     (let c1 = 1; t1 = xs; t2 = xs[c1 := c1] in (t1, t2))"
+
+definition return_tuple_4 where
+  "return_tuple_4 xs = 
+    (let p = let c1 = 1; c2 = 2 in (c1, c2) in p)"
 
 definition not_linear where
   "not_linear xs = 
@@ -84,14 +88,22 @@ definition if_6 where
          in t1)"
 
 definition if_7 where
-  "if_7 xs ys = (
+  "if_7 xs = (
     let c1 = 1 
-    in if xs = [] 
-       then let t1 = xs[c1 := c1]; t2 = ys[c1 := c1] 
+    in if True
+       then let t1 = xs[c1 := c1]
             in (t1, t1) 
-       else let t1 = ys[c1 := c1] 
+       else let t1 = xs[c1 := c1] 
             in (t1, t1)
     )"
+
+
+
+definition test where
+  "test xs = (let c1 = 1; c2 = (c1, c1); t1 = xs[c1 := c2] in t1)"
+
+definition test_2 where
+  "test_2 xs = (let c1 = 1; t1 = xs[c1 := c1] in if_7 t1)"
 
 definition fallback_1 where
   "fallback_1 xs = 
@@ -136,13 +148,37 @@ schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (sequential_
   unfolding sequential_2_def 
   by hnr_arr
 
+
 schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (return_tuple_1 xs)"
   unfolding return_tuple_1_def
   by hnr_arr
 
-(* TODO: Why is id_assn duplicated ? *)
+lemma tuple_simp: "(let x = (a, b) in f x) = (let x1 = a; x2 = b in f (x1, x2))"
+  by simp
+ 
+lemma hnr_t:
+  assumes "hnr \<Gamma> pi \<Gamma>' (fst p, snd p)"
+  shows "hnr \<Gamma> pi \<Gamma>' p"
+  using assms 
+  by auto
+
+(* TODO: *)
+schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (return_tuple_4 xs)"
+  unfolding return_tuple_4_def
+  by hnr_arr
+
+lemma hnr_tuple_2: 
+  shows 
+    "hnr 
+      (A a ai * B b bi)
+      (return (ai, bi))
+      (\<lambda> p pi. A (fst p) (fst pi) * B (snd p) (snd pi))
+      (a, b)"
+  apply(rule hnrI)
+  by sep_auto
+
 schematic_goal "hnr (array_assn xs xsi) (?c :: ?'a Heap) ?\<Gamma>' (return_tuple_2 xs)"
-  unfolding return_tuple_2_def 
+  unfolding return_tuple_2_def
   by hnr_arr
 
 (* Can't work, not linear! *)
@@ -214,12 +250,18 @@ schematic_goal "hnr (id_assn x xi) (?c :: ?'a Heap) ?\<Gamma>' (case_nat x)"
 
 (* HNR Diff-Array *)
 
+schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (test xs)"
+  unfolding test_def 
+  apply hnr_diff_arr
+  done
+
 schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (sequential_1 xs)"
   unfolding sequential_1_def 
   by hnr_diff_arr
 
 schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (sequential_2 xs)"
-  unfolding sequential_2_def 
+  unfolding sequential_2_def
+  thm hnr_let
   by hnr_diff_arr
 
 schematic_goal "hnr(master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (return_tuple_1 xs)"
@@ -230,6 +272,10 @@ schematic_goal "hnr(master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (retur
 schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (return_tuple_2 xs)"
   unfolding return_tuple_2_def 
   by hnr_diff_arr
+    
+
+find_theorems "hnr _ (return _) _ _ "
+
 
 (* TODO: Why is there no assn afterwards? *)
 schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (return_tuple_3 xs)"
@@ -265,11 +311,22 @@ schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (if_6
   by hnr_diff_arr
 
 (* TODO: We don't want an id_assn for the tuple, right? *)
-schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (if_7 xs)"
-  unfolding if_7_def 
-  by hnr_diff_arr
+synth_definition if_7_impl is [hnr_rule_diff_arr]: 
+    "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (if_7 xs)"
+  unfolding if_7_def   
+  apply hnr_diff_arr
+  done
 
-(* TODO: Why does this work ? *)
+print_theorems
+
+thm hnr_rule_diff_arr
+
+schematic_goal "hnr (master_assn' (insert (xs, xsi) F)) (?c :: ?'a Heap) ?\<Gamma>' (test_2 xs)"
+  unfolding test_2_def
+  apply hnr_diff_arr
+  done
+
+(* TODO: *)
 schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (fallback_1 xs)"
   unfolding fallback_1_def 
   by hnr_diff_arr
@@ -296,11 +353,10 @@ schematic_goal "hnr emp (?c :: ?'a Heap) ?\<Gamma>' (create_diff_arr_3)"
   unfolding create_diff_arr_3_def 
   by hnr_diff_arr
 
-(* TODO: This worked before the clean up ^^ - Do I need a combined operator? *)
+(* TODO: This worked before ^^ - Do I need a combined operator? *)
 schematic_goal "hnr emp (?c :: ?'a Heap) ?\<Gamma>' (create_arr_diff_arr x)"
   unfolding create_arr_diff_arr_def 
   apply hnr_arr
-  (* apply hnr_diff_arr *)
   sorry
 
 schematic_goal "hnr (id_assn x xi) (?c :: ?'a Heap) ?\<Gamma>' (case_tuple x)"

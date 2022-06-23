@@ -14,7 +14,7 @@ qualified definition from_array :: "('a::heap) array \<Rightarrow> 'a diff_arr H
   }"
 
 qualified definition from_list :: "('a::heap) list \<Rightarrow> 'a diff_arr Heap" where
-  "from_list xs =  do {
+  "from_list xs = do {
     a \<leftarrow> Array.of_list xs;
     from_array a
   }"
@@ -39,7 +39,7 @@ qualified partial_function (heap) length :: "('a::heap) diff_arr \<Rightarrow> n
       | Upd m value r \<Rightarrow> length r
   }"
 
-(* TODO: use array_copy *)
+(* TODO: use array_copy? *)
 qualified partial_function (heap) realize :: "('a::heap) diff_arr \<Rightarrow> 'a array Heap" where
   "realize diff_arr = do {
     cell \<leftarrow> !diff_arr;

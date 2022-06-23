@@ -15,7 +15,7 @@ abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a 
 
 named_theorems hnr_rule
 
-lemma hnr_return: "hnr \<Gamma> (return x) (\<lambda> x xi. \<Gamma> * id_assn x xi) x"
+lemma hnr_return: "hnr \<Gamma> (return x) (\<lambda>x xi. \<Gamma> * id_assn x xi) x"
   unfolding hnr_def id_rel_def
   by sep_auto
 
@@ -115,29 +115,8 @@ lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn x"
   by sep_auto
 
 
-(* TODO: Cases *)
-
-lemma hnr_case_tuple [hnr_rule]:
-  assumes 
-    "\<And>a ai b bi. hnr \<Gamma> (ci ai bi) \<Gamma>' (c a b)"
-  shows
-    "hnr \<Gamma> (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>' (case x of (a, b) \<Rightarrow> c a b)"
-  apply(rule hnrI)
-  using assms[THEN hnrD]
-  by(sep_auto simp: split_beta)
-
-(* TODO: Should I use a merge? *)
-lemma hnr_case_nat [hnr_rule]:
-  assumes 
-    "hnr \<Gamma> ci0 \<Gamma>' c0"
-    "\<And>n. hnr \<Gamma> (ci n) \<Gamma>' (c n)"
-  shows
-    "hnr \<Gamma> (case n of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>' (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
-  apply(rule hnrI)
-  using assms[THEN hnrD]
-  by(sep_auto split: nat.splits) 
-
-lemma hnr_tuple [hnr_rule]: 
+(* TODO: Is this how it should look like? *)
+lemma hnr_tuple: 
   assumes
     "hnr \<Gamma> (return ai) \<Gamma>\<^sub>a a"
     "hnr (\<Gamma>\<^sub>a a ai * true) (return bi) (\<Gamma>\<^sub>b a ai) b"
@@ -154,6 +133,43 @@ lemma hnr_tuple [hnr_rule]:
     htriple_return_entails[of "\<Gamma>\<^sub>a a ai * true" bi "\<lambda>bi. \<Gamma>\<^sub>b a ai b bi * true"]
     ent_trans[of \<Gamma>]
   by sep_auto
+
+lemma hnr_tuple_2 [hnr_rule]: 
+  assumes
+    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
+    "\<And>a ai. hnr (\<Gamma>\<^sub>a a ai * true) bi (\<Gamma>\<^sub>b a ai) b"
+  shows 
+    "hnr 
+      \<Gamma>
+      (do { ai' \<leftarrow> ai; bi' \<leftarrow> bi; return (ai', bi') })
+      (\<lambda>x xi. \<Gamma>\<^sub>b (fst x) (fst xi) (snd x) (snd xi))
+      (a, b)"
+  apply(rule hnrI)
+   using 
+    assms[THEN hnrD]
+   by(sep_auto)
+
+(* TODO: Cases *)
+
+lemma hnr_case_tuple:
+  assumes 
+    "\<And>a ai b bi. hnr \<Gamma> (ci ai bi) \<Gamma>' (c a b)"
+  shows
+    "hnr \<Gamma> (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>' (case x of (a, b) \<Rightarrow> c a b)"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  by(sep_auto simp: split_beta)
+
+(* TODO: Should I use a merge? *)
+lemma hnr_case_nat:
+  assumes 
+    "hnr \<Gamma> ci0 \<Gamma>' c0"
+    "\<And>n. hnr \<Gamma> (ci n) \<Gamma>' (c n)"
+  shows
+    "hnr \<Gamma> (case n of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>' (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  by(sep_auto split: nat.splits) 
 
 (* TODO: Fallback *)
 lemma id: "id f (id a) (id b) \<Longrightarrow> f a b"
@@ -226,7 +242,11 @@ lemma frame_match_emp:
 lemma frame_done: "F * emp \<Longrightarrow>\<^sub>A emp * F" 
   by sep_auto
 
-method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn])?
+lemma split_id_assn: "id_assn p pi = id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi)"
+  apply(cases p; cases pi)
+  by(auto simp: id_rel_def)
+
+method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn] split_id_assn)?
 
 method frame_prepare = rule prepare_frame_1, frame_norm_assoc
 
@@ -274,6 +294,12 @@ schematic_goal
   shows "a * \<up>(b) * c * d \<Longrightarrow>\<^sub>A \<up>(b) * d * ?F"
    apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
+
+schematic_goal 
+  shows "id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi) \<Longrightarrow>\<^sub>A id_assn p pi * ?F"
+   apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  done
+
 end
 
 lemma merge_refl: "Merge a a a"
