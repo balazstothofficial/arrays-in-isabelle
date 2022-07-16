@@ -1,6 +1,6 @@
 theory Test_Diff_Arr
-  imports Diff_Arr
-begin
+  imports Diff_Arr "HOL-Library.Code_Target_Nat"
+begin         
 
 definition create_diff_arr where
   "create_diff_arr n x = do {

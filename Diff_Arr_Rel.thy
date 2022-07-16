@@ -1,5 +1,5 @@
 theory Diff_Arr_Rel
-  imports Master_Assn
+  imports Cell
 begin
 
 fun diff_arr_rel' where
@@ -10,12 +10,15 @@ fun diff_arr_rel' where
     \<and> xs = xs'[i:=x] 
     \<and> i < length xs'
 )"
-(* TODO: Is precedence okay? + How to make subscript not just single char *)
+
+(* TODO: Is precedence okay? + How to make subscript not just single char? *)
 notation diff_arr_rel' ("(_ \<turnstile> _ \<sim>\<^sub>_ _)" [51, 51, 51, 51] 50) 
   
 definition diff_arr_rel where
   "diff_arr_rel t xs a \<equiv> \<exists>n. t \<turnstile> xs \<sim>\<^sub>n a"
-notation diff_arr_rel ("(_ \<turnstile> _ \<sim> _)" [51, 51, 51] 50) (* TODO: Is precedence okay? *)
+
+(* TODO: Is precedence okay? *)
+notation diff_arr_rel ("(_ \<turnstile> _ \<sim> _)" [51, 51, 51] 50) 
 
 lemma diff_arr_rel'_cons: "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> x # t \<turnstile> xs \<sim>\<^sub>n diff_arr"
 proof(induction t xs n diff_arr rule: diff_arr_rel'.induct)

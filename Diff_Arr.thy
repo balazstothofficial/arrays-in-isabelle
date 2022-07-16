@@ -1,8 +1,8 @@
 theory Diff_Arr
-  imports Diff_Arr_Rel
+  imports Diff_Arr_Rel Master_Assn
 begin
 
-(* TODO: Use Type Classes instead of context *)
+(* TODO: Use Locale instead of context *)
 context
 begin
 
@@ -38,6 +38,7 @@ qualified partial_function (heap) length :: "('a::heap) diff_arr \<Rightarrow> n
         Array array   \<Rightarrow> Array.len array
       | Upd m value r \<Rightarrow> length r
   }"
+declare length.simps[code]
 
 (* TODO: use array_copy? *)
 qualified partial_function (heap) realize :: "('a::heap) diff_arr \<Rightarrow> 'a array Heap" where
@@ -60,7 +61,7 @@ qualified partial_function (heap) update ::
     "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a diff_arr Heap"
 where
   "update diff_arr i v = do {
-      cell  \<leftarrow> !diff_arr;
+      cell \<leftarrow> !diff_arr;
       case cell of
         Array arr \<Rightarrow> do {
           new_diff_arr \<leftarrow> ref (Array arr);
@@ -79,30 +80,6 @@ declare update.simps[code]
 
 end
 
-lemma ref_lookup_aux: "t \<turnstile> xs \<sim>\<^sub>n a \<Longrightarrow> <master_assn t> !a <\<lambda>c. master_assn t>"
-proof(induction n)
-  case 0
-  then show ?case
-    apply sep_auto
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    apply(sep_drule r: close_master_assn_array)
-    by sep_auto
-next
-  case (Suc n)
-  then show ?case 
-    apply sep_auto
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    apply(sep_drule r: close_master_assn_upd)
-    by sep_auto
-qed
-
-lemma ref_lookup: "t \<turnstile> xs \<sim> a \<Longrightarrow> <master_assn t> !a <\<lambda>c. master_assn t>"
-  unfolding diff_arr_rel_def
-  using ref_lookup_aux
-  by sep_auto
-
 lemma ref_lookup_upd: "\<lbrakk>t \<turnstile> xs \<sim>\<^sub>n a; 0 < n\<rbrakk>
    \<Longrightarrow> <master_assn t> !a <\<lambda>c. master_assn t * \<up>(\<exists>x y z. c = Upd x y z)>"
 proof(induction n)
@@ -111,7 +88,7 @@ proof(induction n)
     by sep_auto
 next
   case (Suc n)
-  then show ?case 
+  from Suc(2) show ?case 
     apply sep_auto
     apply(sep_drule r: open_master_assn)
     apply sep_auto
@@ -134,15 +111,21 @@ lemma from_list [sep_heap_rules]:
   unfolding Diff_Arr.from_list_def 
   by sep_auto
 
-lemma from_array' [sep_heap_rules]: "
-  <a \<mapsto>\<^sub>a xs * master_assn t>
+lemma from_array' [sep_heap_rules]: 
+ "<a \<mapsto>\<^sub>a xs * master_assn t>
      Diff_Arr.from_array a      
   <\<lambda>r. let t' = (r, Array' xs)#t 
     in master_assn t' * \<up>(diff_arr_rel t' xs r)>"
-  unfolding  Diff_Arr.from_array_def Let_def diff_arr_rel_def
-  apply sep_auto
-  apply (meson diff_arr_rel'.simps(1) diff_arr_rel_def list.set_intros(1))
-  by (metis close_master_assn_array list.set_intros(1) remove1.simps(2) star_aci(2))
+  unfolding Diff_Arr.from_array_def Let_def diff_arr_rel_def
+  by(sep_auto simp: exI[where x = "0"] master_assn_def)
+ 
+lemma from_list' [sep_heap_rules]:
+    "<master_assn t> 
+      Diff_Arr.from_list xs 
+     <\<lambda>r. let t' = (r, Array' xs) # t 
+          in  master_assn t' * \<up>(t' \<turnstile> xs \<sim> r)>"
+  unfolding Diff_Arr.from_list_def
+  by sep_auto
 
 lemma lookup_aux: "
   <\<up>(t \<turnstile> xs \<sim>\<^sub>n a \<and> i < length xs) * master_assn t >
@@ -155,7 +138,7 @@ proof(induction n arbitrary: xs a)
     apply(subst lookup.simps)
     apply(sep_drule r: open_master_assn)
     apply(sep_auto)
-    apply (sep_drule r: close_master_assn_array)
+    apply(sep_drule r: close_master_assn_array)
     by sep_auto
 next
   case (Suc n)
@@ -246,15 +229,17 @@ lemma update[sep_heap_rules]: "
       apply(sep_drule r: open_master_assn)
       apply(sep_auto eintros del: exI)
       subgoal for new_arr new_diff_arr
-         apply(rule exI[where x = "
-                     (new_diff_arr, Array' (xs[i := v]))
+        apply(rule exI[where x = "
+                      (new_diff_arr, Array' (xs[i := v]))
                    #  (diff_arr, Upd' i (xs ! i) new_diff_arr)
-                   #   (remove1 (diff_arr, Array' xs) t)"]) 
+                   #  (remove1 (diff_arr, Array' xs) t)"
+                ]) 
         apply sep_auto
         subgoal for xs' diff_arr' h n' as
         proof(induction t==t xs' n' diff_arr' arbitrary: xs' diff_arr' rule: diff_arr_rel'.induct)
           case (1 xs' diff_arr')
-          then show ?case  proof(cases "diff_arr' = diff_arr")
+          then show ?case 
+          proof(cases "diff_arr' = diff_arr")
             case True
 
             with 1 have "distinct (map fst t)" 
@@ -264,7 +249,7 @@ lemma update[sep_heap_rules]: "
               by (meson cell'.inject(1) distinct_map_fstD diff_arr_rel'.simps(1))
 
             with True 1 show ?thesis
-              apply sep_auto
+              apply -
               apply(rule exI[where x = 1])
               apply sep_auto
               apply(rule exI[where x = i])
@@ -274,7 +259,7 @@ lemma update[sep_heap_rules]: "
           next
             case False
             with 1 show ?thesis
-              apply sep_auto
+              apply -
               apply(rule exI[where x = 0])
               by sep_auto
           qed
@@ -301,24 +286,24 @@ lemma update[sep_heap_rules]: "
     case False
     then show ?thesis 
       apply(sep_auto heap: ref_lookup_upd)
-       apply(rule fi_rule[OF realize_aux])
-       apply(sep_auto eintros del: exI)+
+      apply(rule fi_rule[OF realize_aux])
+      apply(sep_auto eintros del: exI)+
       subgoal for new_arr new_diff_arr
-      proof(induction "(new_diff_arr,  Array' (xs[i := v]))\<in>\<^sub>Lt")
-        case True
-        then show ?thesis
+        apply(cases "(new_diff_arr, Array' (xs[i := v])) \<in>\<^sub>L t")
+        
+        subgoal
           apply-
           apply(rule exI[where x = "t"])
           by(sep_auto intro: exI[where x = 0])
-      next
-        case False
-        then show ?thesis
+        
+        subgoal
           apply-
           apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) #  t"])
           apply sep_auto
           using diff_arr_rel'_cons apply blast
           by(sep_auto simp: open_master_assn_cons intro: exI[where x = 0])+
-      qed
+        
+        done
       done
   qed
   done

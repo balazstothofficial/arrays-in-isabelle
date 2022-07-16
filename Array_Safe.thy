@@ -26,7 +26,7 @@ definition array_update_safe where
 lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
   unfolding List.nth_def
   apply(induction xs arbitrary: i)
-  by(auto split: nat.splits)
+  by(auto split: nat.split)
 
 lemma array_nth_safe [sep_heap_rules]: "
    <arr \<mapsto>\<^sub>a xs> 

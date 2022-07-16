@@ -310,7 +310,6 @@ schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (if_6
   unfolding if_6_def 
   by hnr_diff_arr
 
-(* TODO: We don't want an id_assn for the tuple, right? *)
 synth_definition if_7_impl is [hnr_rule_diff_arr]: 
     "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (if_7 xs)"
   unfolding if_7_def   
@@ -356,7 +355,6 @@ schematic_goal "hnr emp (?c :: ?'a Heap) ?\<Gamma>' (create_diff_arr_3)"
 (* TODO: This worked before ^^ - Do I need a combined operator? *)
 schematic_goal "hnr emp (?c :: ?'a Heap) ?\<Gamma>' (create_arr_diff_arr x)"
   unfolding create_arr_diff_arr_def 
-  apply hnr_arr
   sorry
 
 schematic_goal "hnr (id_assn x xi) (?c :: ?'a Heap) ?\<Gamma>' (case_tuple x)"

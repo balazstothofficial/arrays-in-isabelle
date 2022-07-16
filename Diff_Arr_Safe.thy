@@ -2,34 +2,38 @@ theory Diff_Arr_Safe
   imports Diff_Arr
 begin
 
-definition diff_arr_lookup_safe where
-  "diff_arr_lookup_safe arr i = do {
+context
+begin
+
+qualified definition lookup where
+  "lookup arr i = do {
     len \<leftarrow>  Diff_Arr.length arr;
     if i < len
-    then  Diff_Arr.lookup arr i
+    then Diff_Arr.lookup arr i
     else do { 
-      arr \<leftarrow>  Diff_Arr.realize arr;
-      xs \<leftarrow> Array.freeze arr;
+      arr \<leftarrow> Diff_Arr.realize arr;
+      xs  \<leftarrow> Array.freeze arr;
       return (xs ! i)
     }
   }"
 
-definition diff_arr_update_safe  where
-  "diff_arr_update_safe arr i v = do {
-    len \<leftarrow>  Diff_Arr.length arr;
+qualified definition update  where
+  "update arr i v = do {
+    len \<leftarrow> Diff_Arr.length arr;
     if i < len
     then Diff_Arr.update arr i v 
     else return arr
   }"
 
+end
 
-lemma update_safe[sep_heap_rules]: "
+lemma update_safe [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
-     diff_arr_update_safe diff_arr i v
+     Diff_Arr_Safe.update diff_arr i v
   <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') 
       \<and> (t' \<turnstile> xs[i := v] \<sim> diff_arr))>\<^sub>t"
-  unfolding diff_arr_update_safe_def
+  unfolding Diff_Arr_Safe.update_def
   apply sep_auto
   apply(rule fi_rule[OF length])
   apply sep_auto
@@ -40,9 +44,9 @@ lemma update_safe[sep_heap_rules]: "
 
 lemma lookup_safe [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> a)> 
-     diff_arr_lookup_safe a i 
+     Diff_Arr_Safe.lookup a i 
   <\<lambda>r. master_assn t * \<up>(r = xs!i)>\<^sub>t"
-  unfolding diff_arr_lookup_safe_def
+  unfolding  Diff_Arr_Safe.lookup_def
   apply sep_auto
   apply(rule fi_rule[OF length])
   apply sep_auto+

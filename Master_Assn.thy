@@ -3,10 +3,10 @@ theory Master_Assn
 begin
 
 definition master_assn :: "('a cell ref * 'a::heap cell') list \<Rightarrow> assn" where
-  "master_assn C = fold_assn (map (\<lambda>(p, c'). \<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) C)"
+  "master_assn t = fold_assn (map (\<lambda>(p, c'). \<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) t)"
 
 lemma open_master_assn_cons: 
-    "master_assn ((p,c')#t) = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn t"
+    "master_assn ((p, c') # t) = (\<exists>\<^sub>A c. p \<mapsto>\<^sub>r c * cell_assn c' c) * master_assn t"
   unfolding master_assn_def
   by auto
 
@@ -20,11 +20,11 @@ proof-
 
   with assms show ?thesis
     unfolding master_assn_def
-    using 
+    using
         fold_assn_remove1
         fold_assn_remove1_map[of "(p, c')" t "(\<lambda>(p, c'). \<exists>\<^sub>Ac. p \<mapsto>\<^sub>r c * cell_assn c' c)"]
     by auto
-qed 
+qed
 
 lemma open_master_assn: 
   assumes "(p, c') \<in>\<^sub>L t"
@@ -48,12 +48,10 @@ lemma close_master_assn_upd': "(a, Upd' i x a') \<in>\<^sub>L t
 
 lemma master_assn_distinct: "h \<Turnstile> master_assn t \<Longrightarrow> distinct (map fst t)"
   apply(rule ccontr)
-  apply(drule not_distinct_decomp)
-  apply(clarsimp simp: map_eq_Cons_conv Misc.map_eq_append_conv)
-  unfolding master_assn_def
-  by simp
-  
-lemma master_assn_distinct': "master_assn t \<Longrightarrow>\<^sub>A \<up>(distinct (map fst t)) * true"
+  using not_distinct_decomp[of "map fst t"]
+  by(auto simp: map_eq_append_conv master_assn_def)
+
+lemma master_assn_distinct': "master_assn t \<Longrightarrow>\<^sub>A master_assn t * \<up>(distinct (map fst t))"
   by(sep_auto simp: master_assn_distinct)
 
 end

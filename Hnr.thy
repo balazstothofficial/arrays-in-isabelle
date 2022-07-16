@@ -149,6 +149,28 @@ lemma hnr_tuple_2 [hnr_rule]:
     assms[THEN hnrD]
    by(sep_auto)
 
+(* Is sth like this possible? 
+lemma hnr_case_1: 
+  assumes "\<And>x1i x1. hnr \<Gamma> (ci x1i) \<Gamma>' (c x1)"
+  shows "hnr \<Gamma> (case xi of x1i \<Rightarrow> ci x1i) \<Gamma>' (case x of x1 \<Rightarrow> c x1)"
+  using assms
+  by auto
+
+lemma hnr_case_2: 
+  assumes "\<And>x1i x1. hnr \<Gamma> (c1i x1i) \<Gamma>' (c1 x1)"
+          "\<And>x2i x2. hnr \<Gamma> (c2i x2i) \<Gamma>' (c2 x2)"
+  shows "hnr 
+            \<Gamma> 
+            (case xi of x1i \<Rightarrow> c1i x1i 
+                      | x2i \<Rightarrow> c2i x2i) 
+            \<Gamma>' 
+            (case x of x1 \<Rightarrow> c1 x1 
+                     | x2 \<Rightarrow> c2 x2)"
+  using assms
+  by auto
+
+*)
+
 (* TODO: Cases *)
 
 lemma hnr_case_tuple:
@@ -243,8 +265,7 @@ lemma frame_done: "F * emp \<Longrightarrow>\<^sub>A emp * F"
   by sep_auto
 
 lemma split_id_assn: "id_assn p pi = id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi)"
-  apply(cases p; cases pi)
-  by(auto simp: id_rel_def)
+  by(cases p)(auto simp: id_rel_def)
 
 method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn] split_id_assn)?
 
@@ -275,29 +296,29 @@ schematic_goal
 schematic_goal 
   fixes a b c d::assn
   shows "a * b * c * d \<Longrightarrow>\<^sub>A emp * ?F"
-   apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   fixes a b c d::assn
   shows "emp \<Longrightarrow>\<^sub>A emp * ?F"
-   apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   fixes a b c d::assn
   shows "a * b * c * d \<Longrightarrow>\<^sub>A b * d * ?F"
-   apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   shows "a * \<up>(b) * c * d \<Longrightarrow>\<^sub>A \<up>(b) * d * ?F"
-   apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 schematic_goal 
   shows "id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi) \<Longrightarrow>\<^sub>A id_assn p pi * ?F"
-   apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
   done
 
 end
@@ -306,7 +327,7 @@ lemma merge_refl: "Merge a a a"
   unfolding Merge_def
   by simp
 
-(* TODO: Merge just works if there is no tuple involved *)
+(* TODO: Merge just works if there is no tuple involved (Try with new tuple setup) *)
 method merge = (simp only: star_aci)?, rule merge_refl
 
 method hnr_rule methods frame_match_atom uses rule_set = 

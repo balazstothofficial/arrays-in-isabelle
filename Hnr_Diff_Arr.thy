@@ -45,10 +45,11 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
   unfolding master_assn'_def New_Diff_Arr_def
   by sep_auto
 
+(* What was the reason that insert is gone on post condition? (also in update) *)
 lemma hnr_lookup[hnr_rule_diff_arr]: "
   hnr
     (master_assn' (insert (xs, xsi) S) * id_assn i ii) 
-    (diff_arr_lookup_safe xsi ii)
+    (Diff_Arr_Safe.lookup xsi ii)
     (\<lambda>r ri. id_assn r ri * master_assn' S)
     (xs ! i)"
   unfolding id_rel_def master_assn'_def
@@ -80,7 +81,7 @@ lemma hnr_realize: "
 lemma hnr_update[hnr_rule_diff_arr]: "
   hnr
     (master_assn' (insert (xs, xsi) S) * id_assn i ii * id_assn v vi)
-    (diff_arr_update_safe xsi ii vi)
+    (Diff_Arr_Safe.update xsi ii vi)
     (\<lambda>xs' xsi'. master_assn' (insert (xs', xsi') S))
     (xs [i:= v])"
   unfolding id_rel_def master_assn'_def
