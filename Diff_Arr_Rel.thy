@@ -36,6 +36,10 @@ next
     done
 qed
 
+lemma diff_arr_rel'_cons': "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> \<exists>n. x # t \<turnstile> xs \<sim>\<^sub>n diff_arr"
+  using diff_arr_rel'_cons
+  by blast
+
 lemma diff_arr_rel_cons: "t \<turnstile> xs \<sim> diff_arr \<Longrightarrow> x # t \<turnstile> xs \<sim> diff_arr"
   unfolding diff_arr_rel_def
   using diff_arr_rel'_cons by blast

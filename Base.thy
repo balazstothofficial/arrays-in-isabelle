@@ -2,6 +2,10 @@ theory Base
   imports "Separation_Logic_Imperative_HOL.Sep_Main" Named_Simpsets More_Eisbach_Tools
 begin
 
+lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
+  unfolding List.nth_def
+  by(induction xs arbitrary: i)(auto split: nat.split)
+
 no_notation Ref.update ("_ := _" 62)
 notation Ref.update ("_ :=\<^sub>R _" 62)
 
@@ -20,6 +24,13 @@ lemma htriple_frame_fwd:
   shows "<Ps> c <Q>"
   using assms
   by (metis cons_rule ent_refl fr_refl)
+
+lemma hoare_triple_preI': 
+  "\<lbrakk>\<And>h. h \<Turnstile> P \<Longrightarrow> P1; P1 \<Longrightarrow> <P> c <Q>\<rbrakk> \<Longrightarrow> <P> c <Q>"
+  using hoare_triple_preI[of P c Q]
+  by auto
+
+method hoare_triple_preI uses rule = rule hoare_triple_preI'[OF rule], assumption+
 
 (* TODO: Probably not needed *)
 lemma htriple_return_entails: "<P> return x <Q> \<Longrightarrow> P \<Longrightarrow>\<^sub>A Q x"

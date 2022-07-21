@@ -25,11 +25,10 @@ lemma hnr_from_array [hnr_rule_diff_arr]:
     (array_assn xs xsi)
     (Diff_Arr.from_array xsi)
     (\<lambda>xs xsi. master_assn' { (xs, xsi) })
-    (Diff_Arr_From_Arr xs)
-  "
+    (Diff_Arr_From_Arr xs)"
   apply(rule hnrI)
   unfolding master_assn'_def Diff_Arr_From_Arr_def
-  by sep_auto
+  by(sep_auto simp: Let_def)
 
 definition New_Diff_Arr where
   "New_Diff_Arr a = a"
@@ -43,7 +42,7 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
   "
   apply(rule hnrI)
   unfolding master_assn'_def New_Diff_Arr_def
-  by sep_auto
+  by(sep_auto simp: Let_def)
 
 (* What was the reason that insert is gone on post condition? (also in update) *)
 lemma hnr_lookup[hnr_rule_diff_arr]: "
