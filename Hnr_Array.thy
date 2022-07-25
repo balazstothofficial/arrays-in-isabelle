@@ -14,7 +14,7 @@ lemma hnr_new:
   apply(rule hnrI)
   by sep_auto
 
-definition New_Arr where
+definition New_Arr :: "'a list \<Rightarrow> 'a list" where
   "New_Arr xs = xs"
 
 lemma hnr_array_of_list [hnr_rule_arr]: 
@@ -53,6 +53,7 @@ lemma hnr_copy_arr [hnr_rule_arr]:
 
 method ent_refl = rule ent_refl
 
+(* TODO: Why is not hnr_step_arr+ = hnr_arr *)
 method hnr_arr = hnr ent_refl ent_refl rule_set: hnr_rule_arr
 
 method hnr_step_arr = hnr_step ent_refl ent_refl rule_set: hnr_rule_arr

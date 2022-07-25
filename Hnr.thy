@@ -67,6 +67,7 @@ method keep_drop_step methods keep_atom =
 method keep_drop methods keep_atom = 
   rule keep_drop_init, ((keep_drop_step keep_atom)+; fail)
 
+(* Versteh ich noch nicht 100%: *)
 lemma hnr_let[hnr_rule]:
   assumes 
     "hnr \<Gamma> vi \<Gamma>\<^sub>1 v" 
@@ -147,7 +148,7 @@ lemma hnr_tuple_2 [hnr_rule]:
   apply(rule hnrI)
    using 
     assms[THEN hnrD]
-   by(sep_auto)
+   by sep_auto
 
 (* Is sth like this possible? 
 lemma hnr_case_1: 
@@ -327,7 +328,6 @@ lemma merge_refl: "Merge a a a"
   unfolding Merge_def
   by simp
 
-(* TODO: Merge just works if there is no tuple involved (Try with new tuple setup) *)
 method merge = (simp only: star_aci)?, rule merge_refl
 
 method hnr_rule methods frame_match_atom uses rule_set = 
@@ -337,6 +337,7 @@ method hnr_rule methods frame_match_atom uses rule_set =
 method hnr_step methods frame_match_atom keep_atom uses rule_set =
    (hnr_rule frame_match_atom rule_set: rule_set) | keep_drop keep_atom | keep_drop_simp | merge
 
+(* TODO: How to avoid back tracking? *)
 method hnr methods frame_match_atom keep_atom uses rule_set =
   (hnr_step frame_match_atom keep_atom rule_set: rule_set)+
   

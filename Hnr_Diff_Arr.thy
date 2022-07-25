@@ -44,7 +44,6 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
   unfolding master_assn'_def New_Diff_Arr_def
   by(sep_auto simp: Let_def)
 
-(* What was the reason that insert is gone on post condition? (also in update) *)
 lemma hnr_lookup[hnr_rule_diff_arr]: "
   hnr
     (master_assn' (insert (xs, xsi) S) * id_assn i ii) 
@@ -57,7 +56,7 @@ lemma hnr_lookup[hnr_rule_diff_arr]: "
   subgoal for t
     apply(subgoal_tac "t \<turnstile> xs  \<sim> xsi")
      apply(rule cons_post_rule)
-   apply(rule fi_rule[OF lookup_safe[of t xs]])
+      apply(rule fi_rule[OF lookup_safe[of t xs]])
     by sep_auto+
   done
 
