@@ -117,6 +117,8 @@ where
         }
   }"
 
+find_theorems name: "heap." name: "fix"
+
 qualified partial_function (heap) length :: 
   "('a::heap) diff_arr \<Rightarrow> nat Heap" 
 where
@@ -127,8 +129,6 @@ where
       | Upd m value r \<Rightarrow> length r
   }"
 declare length.simps[code]
-
-end
 
 lemma ref_lookup_upd: "\<lbrakk>t \<turnstile> xs \<sim>\<^sub>n a; 0 < n\<rbrakk> \<Longrightarrow> 
   <master_assn t> !a <\<lambda>c. master_assn t * \<up>(\<exists>x y z. c = Upd x y z)>"
@@ -150,7 +150,7 @@ qed
          in sep_heap_rules? *)
 lemma from_array' [sep_heap_rules]: 
   "<a \<mapsto>\<^sub>a xs>
-      Diff_Arr.from_array a
+      from_array a
    <\<lambda>r. let t = [(r, Array' xs)] 
         in master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
   unfolding Diff_Arr.from_array_def diff_arr_rel_def master_assn_def
@@ -159,23 +159,23 @@ lemma from_array' [sep_heap_rules]:
  
 lemma from_list' [sep_heap_rules]:
   "<emp> 
-    Diff_Arr.from_list xs 
+    from_list xs 
    <\<lambda>r. let t = [(r, Array' xs)]
         in  master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
   unfolding Diff_Arr.from_list_def
   by sep_auto
 
 lemma from_array [sep_heap_rules]:
-  "<a \<mapsto>\<^sub>a xs> Diff_Arr.from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
+  "<a \<mapsto>\<^sub>a xs> from_array a <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
   by(sep_auto simp: Let_def)
 
 lemma from_list [sep_heap_rules]:
-  "<emp> Diff_Arr.from_list xs <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
+  "<emp> from_list xs <\<lambda>r. \<exists>\<^sub>At. master_assn t * \<up>(t \<turnstile> xs \<sim> r)>"
   by(sep_auto simp: Let_def)
 
 lemma lookup_aux: 
-  "<\<up>(t \<turnstile> xs \<sim>\<^sub>n a \<and> i < length xs) * master_assn t >
-      Diff_Arr.lookup a i 
+  "<\<up>(t \<turnstile> xs \<sim>\<^sub>n a \<and> i < List.length xs) * master_assn t >
+      lookup a i 
    <\<lambda>r. master_assn t * \<up>(r = xs!i)>"
 proof(induction n arbitrary: xs a)
   case 0
@@ -194,8 +194,8 @@ next
 qed
 
 lemma lookup [sep_heap_rules]: 
-  "<master_assn t * \<up>(t \<turnstile> xs \<sim> a \<and> i < length xs)> 
-     Diff_Arr.lookup a i 
+  "<master_assn t * \<up>(t \<turnstile> xs \<sim> a \<and> i < List.length xs)> 
+     lookup a i 
    <\<lambda>r. master_assn t * \<up>(r = xs!i)>"
   unfolding diff_arr_rel_def
   using lookup_aux[of t]
@@ -203,17 +203,17 @@ lemma lookup [sep_heap_rules]:
 
 lemma realize_aux: 
  "<master_assn t * \<up>(t \<turnstile> xs \<sim>\<^sub>n diff_arr)> 
-     Diff_Arr.realize diff_arr
+     realize diff_arr
   <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a xs>" 
-proof(induction n arbitrary: t diff_arr xs)
+proof(induction n arbitrary: diff_arr xs)
   case 0
   then show ?case
     apply sep_auto
     apply(subst realize.simps)
     apply(sep_drule r: open_master_assn)
-    apply sep_auto
+    apply(sep_auto simp: map_nth)
     apply(sep_drule r: close_master_assn_array)
-    by(sep_auto simp: map_nth)
+    by sep_auto
 next
   case (Suc n)
   then show ?case
@@ -222,14 +222,10 @@ next
     apply(sep_drule r: open_master_assn)
     apply sep_auto
     apply(sep_drule r: close_master_assn_upd)
-    apply(sep_auto)
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    apply(sep_drule r: close_master_assn_upd)
-    by sep_auto
+    by sep_auto+    
 qed
 
-lemma helper: "i < length xs' \<Longrightarrow>
+lemma helper: "i < List.length xs' \<Longrightarrow>
   (case (case upds i of None \<Rightarrow> upds(i \<mapsto> x) | Some x \<Rightarrow> upds) i' of 
      None \<Rightarrow> xs' ! i'
    | Some v \<Rightarrow> v) = 
@@ -238,9 +234,9 @@ lemma helper: "i < length xs' \<Longrightarrow>
 
 lemma realize'_aux: 
  "<master_assn t * \<up>(t \<turnstile> xs \<sim>\<^sub>n diff_arr)> 
-     Diff_Arr.realize' diff_arr upds
+     realize' diff_arr upds
   <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a 
-        (map (\<lambda>i. case upds i of None \<Rightarrow> xs ! i | Some v \<Rightarrow> v) [0..<length xs])>" 
+        (map (\<lambda>i. case upds i of None \<Rightarrow> xs ! i | Some v \<Rightarrow> v) [0..<List.length xs])>" 
 proof(induction n arbitrary: t diff_arr xs upds)
   case 0
   then show ?case
@@ -258,20 +254,16 @@ next
     apply(sep_drule r: open_master_assn)
     apply sep_auto
     apply(sep_drule r: close_master_assn_upd)
-    apply(sep_auto)
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    apply(sep_drule r: close_master_assn_upd)
-    apply sep_auto
+    apply sep_auto+
     subgoal for i x a' xs'
-      using Suc[of t xs' a' "(case upds i of None \<Rightarrow> upds(i \<mapsto> x) | Some x \<Rightarrow> upds)"]
+      using Suc[of t xs' a' "update_if_none upds i x "]
       by(sep_auto simp: helper)
     done
 qed
 
 lemma realize [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
-     Diff_Arr.realize diff_arr
+     realize diff_arr
    <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a xs>" 
   unfolding diff_arr_rel_def
   using realize_aux[of t]
@@ -286,23 +278,19 @@ lemma realize' [sep_heap_rules]:
   by(sep_auto simp: map_nth)
 
 lemma update_diff_arr_rel: "\<lbrakk>
-  i < length xs; 
+  i < List.length xs; 
   (diff_arr, Array' xs) \<in>\<^sub>L t; 
   distinct (map fst t);
   t \<turnstile> xs' \<sim>\<^sub>n' diff_arr'
 \<rbrakk> \<Longrightarrow> \<exists>n. (new_diff_arr, Array' (xs[i := v])) #
           (diff_arr, Upd' i (xs ! i) new_diff_arr) #
           remove1 (diff_arr, Array' xs) t \<turnstile> xs' \<sim>\<^sub>n diff_arr'"
-proof(induction t==t xs' n' diff_arr' arbitrary: xs' diff_arr' rule: diff_arr_rel'.induct)
-  case (1 xs' diff_arr')
-  then show ?case 
+proof(induction t xs' n' diff_arr' arbitrary: xs' diff_arr' rule: diff_arr_rel'.induct)
+  case (1 t xs' diff_arr')
+  then show ?case
   proof(cases "diff_arr' = diff_arr")
     case True
-  
-    with 1 have "distinct (map fst t)" 
-      by auto
-  
-    with 1 True have "xs' = xs"
+    with 1 have "xs' = xs"
       using distinct_map_fstD[of t]
       by auto
   
@@ -320,12 +308,12 @@ proof(induction t==t xs' n' diff_arr' arbitrary: xs' diff_arr' rule: diff_arr_re
       by(sep_auto simp: exI[where x = 0])
   qed
 next
-  case (2 xs' n' diff_arr')
+  case (2 t xs' n' diff_arr')
 
   then obtain i' v' diff_arr'' xs'' where unfold_diff_arr_rel:
       "(diff_arr', Upd' i' v' diff_arr'') \<in>\<^sub>L t" 
-      "t \<turnstile> xs'' \<sim>\<^sub>n' diff_arr''" 
-      "i' < length xs''"
+      "t \<turnstile> xs'' \<sim>\<^sub>n' diff_arr''"
+      "i' < List.length xs''"
       "xs' = xs''[i' := v']"
     by sep_auto
 
@@ -333,8 +321,8 @@ next
      "(new_diff_arr, Array' (xs[i := v])) #
       (diff_arr, Upd' i (xs ! i) new_diff_arr) #
       remove1 (diff_arr, Array' xs) t \<turnstile> xs'' \<sim>\<^sub>n'' diff_arr''"
-    by sep_auto
-
+    by blast
+   
   with unfold_diff_arr_rel show ?case
     apply sep_auto
     apply(rule exI[where x = "Suc n''"])
@@ -343,11 +331,11 @@ qed
 
 lemma update_aux: 
   assumes
-    "i < length xs"
+    "i < List.length xs"
     "t \<turnstile> xs \<sim>\<^sub>n diff_arr"
   shows
     "<master_assn t> 
-       Diff_Arr.update diff_arr i v
+       update diff_arr i v
      <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
        \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
          (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
@@ -382,11 +370,11 @@ qed
 
 lemma update'_aux: 
   assumes
-    "i < length xs"
+    "i < List.length xs"
     "t \<turnstile> xs \<sim>\<^sub>n diff_arr"
   shows
     "<master_assn t> 
-       Diff_Arr.update' diff_arr i v
+       update' diff_arr i v
      <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
        \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
          (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
@@ -421,16 +409,16 @@ next
 qed
 
 lemma update[sep_heap_rules]: 
-  "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
-     Diff_Arr.update diff_arr i v
+  "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < List.length xs)> 
+     update diff_arr i v
    <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
       (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
   by(sep_auto heap: update_aux simp: diff_arr_rel_def)
 
 lemma update'[sep_heap_rules]: 
-  "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < length xs)> 
-     Diff_Arr.update' diff_arr i v
+  "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < List.length xs)> 
+     update' diff_arr i v
    <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
       (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
@@ -438,8 +426,8 @@ lemma update'[sep_heap_rules]:
 
 lemma length_aux: "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> 
   <master_assn t> 
-    Diff_Arr.length diff_arr 
-  <\<lambda>len. master_assn t * \<up>(len = length xs)>"
+    length diff_arr 
+  <\<lambda>len. master_assn t * \<up>(len = List.length xs)>"
 proof(induction t xs n diff_arr rule: diff_arr_rel'.induct)
   case 1
   then show ?case 
@@ -458,9 +446,11 @@ qed
 
 lemma length [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
-     Diff_Arr.length diff_arr
-   <\<lambda>len. master_assn t * \<up>(len = length xs)>"
+     length diff_arr
+   <\<lambda>len. master_assn t * \<up>(len = List.length xs)>"
   unfolding diff_arr_rel_def
   by(sep_auto heap: length_aux)
+
+end
 
 end

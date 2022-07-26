@@ -27,10 +27,10 @@ lemma hnr_array_of_list [hnr_rule_arr]:
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_array_nth [hnr_rule_arr]: "
+lemma hnr_array_lookup [hnr_rule_arr]: "
     hnr
      (xsi \<mapsto>\<^sub>a xs * id_assn i ii)
-     (array_nth_safe xsi ii) 
+     (Array_Safe.lookup xsi ii) 
      (\<lambda> r ri. xsi \<mapsto>\<^sub>a xs * id_assn r ri) 
      (xs ! i)"
   unfolding id_rel_def
@@ -40,7 +40,7 @@ lemma hnr_array_nth [hnr_rule_arr]: "
 lemma hnr_array_update [hnr_rule_arr]: "
     hnr 
       (xsi \<mapsto>\<^sub>a xs * id_assn i ii * id_assn v vi) 
-      (array_update_safe ii vi xsi) 
+      (Array_Safe.update ii vi xsi) 
       array_assn
       (xs [i:= v])"
   unfolding id_rel_def

@@ -30,7 +30,15 @@ lemma hoare_triple_preI':
   using hoare_triple_preI[of P c Q]
   by auto
 
-method hoare_triple_preI uses rule = rule hoare_triple_preI'[OF rule], assumption+
+lemma mod_starE:
+  assumes "h \<Turnstile> P1 * P2"
+  obtains h1 h2 where "h1 \<Turnstile> P1" "h2 \<Turnstile> P2"
+  using assms mod_starD by blast
+
+method hoare_triple_preI_old uses rule = rule hoare_triple_preI'[OF rule], assumption+
+
+method hoare_triple_preI uses rule = rule hoare_triple_preI,
+  (determ\<open>elim mod_starE rule[elim_format]\<close>)?, ((determ\<open>thin_tac "_ \<Turnstile> _"\<close>)+)?
 
 (* TODO: Probably not needed *)
 lemma htriple_return_entails: "<P> return x <Q> \<Longrightarrow> P \<Longrightarrow>\<^sub>A Q x"

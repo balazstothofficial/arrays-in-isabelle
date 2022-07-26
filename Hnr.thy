@@ -15,9 +15,12 @@ abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a 
 
 named_theorems hnr_rule
 
-lemma hnr_return: "hnr \<Gamma> (return x) (\<lambda>x xi. \<Gamma> * id_assn x xi) x"
+lemma hnr_return: "hnr \<Gamma> (return x) (\<lambda>r ri. \<Gamma> * id_assn r ri) x"
   unfolding hnr_def id_rel_def
   by sep_auto
+
+find_theorems name: "pre" "<_> _<_>"
+find_consts name: pure
 
 lemma keep_drop_1:
   assumes
@@ -106,6 +109,38 @@ lemma hnr_if[hnr_rule]:
   apply sep_auto
   using ent_disjI2 fr_refl by blast
 
+lemma hnr_case_nat[hnr_rule]:
+  assumes 
+    "hnr \<Gamma> ci0 \<Gamma>\<^sub>a c0"
+    "\<And>n. hnr \<Gamma> (ci n) \<Gamma>\<^sub>b (c n)"
+    "\<And>a r. Merge (\<Gamma>\<^sub>a a r) (\<Gamma>\<^sub>b a r) (\<Gamma>\<^sub>c a r)"
+  shows
+    "hnr \<Gamma> (case n of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>\<^sub>c (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
+  supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
+  apply(rule hnrI)
+  using assms(3)
+  unfolding Merge_def
+  apply(sep_auto split: nat.splits) 
+  using ent_disjI1 fr_refl apply blast
+  apply sep_auto
+  using ent_disjI2 fr_refl by blast
+
+lemma hnr_case_list[hnr_rule]:
+  assumes 
+    "hnr \<Gamma> ci0 \<Gamma>\<^sub>a c0"
+    "\<And>x xs. hnr \<Gamma> (ci x xs) \<Gamma>\<^sub>b (c x xs)"
+    "\<And>a r. Merge (\<Gamma>\<^sub>a a r) (\<Gamma>\<^sub>b a r) (\<Gamma>\<^sub>c a r)"
+  shows
+    "hnr \<Gamma> (case xs of [] \<Rightarrow> ci0 | x#xs \<Rightarrow> ci x xs) \<Gamma>\<^sub>c (case xs of [] \<Rightarrow> c0 | x#xs \<Rightarrow> c x xs)"
+  supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
+  apply(rule hnrI)
+  using assms(3)
+  unfolding Merge_def
+  apply(sep_auto split: list.splits) 
+  using ent_disjI1 fr_refl apply blast
+  apply sep_auto
+  using ent_disjI2 fr_refl by blast
+
 lemma hnr_pass: "hnr (A x xi) (return xi) A x"
   apply(rule hnrI)
   by sep_auto
@@ -116,7 +151,7 @@ lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn x"
   by sep_auto
 
 
-(* TODO: Is this how it should look like? *)
+(*
 lemma hnr_tuple: 
   assumes
     "hnr \<Gamma> (return ai) \<Gamma>\<^sub>a a"
@@ -133,9 +168,9 @@ lemma hnr_tuple:
     htriple_return_entails[of \<Gamma> ai "\<lambda>ai. \<Gamma>\<^sub>a a ai * true"] 
     htriple_return_entails[of "\<Gamma>\<^sub>a a ai * true" bi "\<lambda>bi. \<Gamma>\<^sub>b a ai b bi * true"]
     ent_trans[of \<Gamma>]
-  by sep_auto
+  by sep_auto *)
 
-lemma hnr_tuple_2 [hnr_rule]: 
+lemma hnr_tuple [hnr_rule]: 
   assumes
     "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
     "\<And>a ai. hnr (\<Gamma>\<^sub>a a ai * true) bi (\<Gamma>\<^sub>b a ai) b"
@@ -173,7 +208,6 @@ lemma hnr_case_2:
 *)
 
 (* TODO: Cases *)
-
 lemma hnr_case_tuple:
   assumes 
     "\<And>a ai b bi. hnr \<Gamma> (ci ai bi) \<Gamma>' (c a b)"
@@ -183,16 +217,6 @@ lemma hnr_case_tuple:
   using assms[THEN hnrD]
   by(sep_auto simp: split_beta)
 
-(* TODO: Should I use a merge? *)
-lemma hnr_case_nat:
-  assumes 
-    "hnr \<Gamma> ci0 \<Gamma>' c0"
-    "\<And>n. hnr \<Gamma> (ci n) \<Gamma>' (c n)"
-  shows
-    "hnr \<Gamma> (case n of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>' (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
-  apply(rule hnrI)
-  using assms[THEN hnrD]
-  by(sep_auto split: nat.splits) 
 
 (* TODO: Fallback *)
 lemma id: "id f (id a) (id b) \<Longrightarrow> f a b"
@@ -340,5 +364,7 @@ method hnr_step methods frame_match_atom keep_atom uses rule_set =
 (* TODO: How to avoid back tracking? *)
 method hnr methods frame_match_atom keep_atom uses rule_set =
   (hnr_step frame_match_atom keep_atom rule_set: rule_set)+
+
+thm hnr_rule hnr_return
   
 end

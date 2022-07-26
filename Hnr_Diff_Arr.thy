@@ -71,8 +71,8 @@ lemma hnr_realize: "
   apply sep_auto
   subgoal for t
     apply(subgoal_tac "t \<turnstile> xs  \<sim> xsi")
-     apply(rule cons_post_rule)
-   apply(rule fi_rule[OF realize[of t xs]])
+    apply(rule cons_post_rule)
+    apply(rule fi_rule[OF realize[of t xs]])
     by sep_auto+
   done
 
@@ -87,8 +87,8 @@ lemma hnr_update[hnr_rule_diff_arr]: "
   apply(sep_auto)
   subgoal for t
     apply(subgoal_tac "t \<turnstile> xs  \<sim> xsi")
-     apply(rule cons_post_rule)
-   apply(rule fi_rule[OF update_safe[of t xs]])
+    apply(rule cons_post_rule)
+    apply(rule fi_rule[OF update_safe[of t xs]])
     by sep_auto+
   done
 
