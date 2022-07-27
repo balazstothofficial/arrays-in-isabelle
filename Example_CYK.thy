@@ -30,6 +30,104 @@ fun member'' :: "'a \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" 
 print_theorems
 declare member''.simps[simp del]
 
+partial_function (option) member''_opt  where
+  "member''_opt a xs n = do { 
+      (case n of 
+            0 \<Rightarrow> Some False 
+         | (Suc n) \<Rightarrow> do {
+        c1 \<leftarrow> Some (xs ! n);
+        let c2 = (c1 = a);
+        c3 \<leftarrow> member''_opt a xs n;
+        let c4 = c2 \<or> c3;
+        Some c4
+      })
+ }"
+
+definition member''_opt2 where
+  "member''_opt2 a xs \<equiv> option.fixp_fun (\<lambda> member''_opt2 n. 
+     (case n of 
+            0 \<Rightarrow> Some False 
+         | (Suc n) \<Rightarrow> do {
+        c1 \<leftarrow> Some (xs ! n);
+        let c2 = (c1 = a);
+        c3 \<leftarrow> member''_opt2 n;
+        let c4 = c2 \<or> c3;
+        Some c4
+      })
+  )"
+
+method_setup partial_function_mono = \<open>Scan.succeed (SIMPLE_METHOD' o Partial_Function.mono_tac)\<close>
+
+schematic_goal member''_unfold: "member''_opt2 a xs n \<equiv> ?v"
+  apply(rule gen_code_thm_option_fixp[OF member''_opt2_def])
+  thm gen_code_thm_option_fixp option.mono_body_fixp
+  by(partial_function_mono)
+
+find_theorems "option.fixp_fun"
+
+lemma "member''_opt2 a xs n = Some (member'' a xs n)"
+  apply(induction a xs n rule: member''.induct)
+  apply(simp(no_asm) add: member''.simps member''_unfold)
+  by(auto split: nat.splits)
+
+lemma [simp]: "flat_lub b {} = b"
+  by (simp add: flat_lub_def)
+
+lemma [simp]: "fun_lub lub {} = (\<lambda>_. lub {})"
+  by (simp add: fun_lub_def)
+
+lemma admissible_fun:
+    fixes le:: "'a \<Rightarrow> 'a \<Rightarrow> bool" and Q :: "'b \<Rightarrow> 'a \<Rightarrow> bool"
+    assumes adm: "\<And>x. ccpo.admissible lub le (Q x)"
+    shows "ccpo.admissible  (fun_lub lub) (fun_ord le) (\<lambda>f. \<forall>x. Q x (f x))"
+  proof (rule ccpo.admissibleI)
+    fix A :: "('b \<Rightarrow> 'a) set"
+    assume Q: "\<forall>f\<in>A. \<forall>x. Q x (f x)"
+    assume ch: "Complete_Partial_Order.chain (fun_ord le) A"
+    assume "A \<noteq> {}"
+    hence non_empty: "\<And>a. {y. \<exists>f\<in>A. y = f a} \<noteq> {}" by auto
+    show "\<forall>x. Q x (fun_lub lub A x)"
+      unfolding fun_lub_def
+      by (rule allI, rule ccpo.admissibleD[OF adm chain_fun[OF ch] non_empty])
+        (auto simp: Q)
+  qed
+
+lemma admissible_flat: "ccpo.admissible (flat_lub b) (flat_ord b) (P)"
+  apply (rule ccpo.admissibleI)
+  by (metis all_not_in_conv flat_interpretation flat_lub_in_chain flat_ord_def partial_function_definitions.lub_upper)
+
+lemma
+  assumes 
+    mono_option: "\<And>x. mono_option (\<lambda>r. f r x)"
+  and
+    step: "\<And>r ri x xi. (\<And>x' xi'. hnr (\<Gamma> x' xi') (ri xi') (\<Gamma>' x' xi') (r x'))
+        \<Longrightarrow> hnr (\<Gamma> x xi) (fi ri xi) (\<Gamma>' x xi) (f r x)"
+  and
+    mono_heap: "\<And>x. mono_Heap (\<lambda>r. fi r x)"
+  shows  
+    "hnr (\<Gamma> x xi) (heap.fixp_fun fi xi) (\<Gamma>' x xi) (option.fixp_fun f x)"
+proof(induction arbitrary: x xi rule: ccpo.fixp_induct[OF option.ccpo])
+  case 1
+  then show ?case 
+    apply(rule admissible_fun)
+    by(rule admissible_flat)
+next
+  case 2
+  then show ?case 
+    using mono_option 
+    by(auto simp: monotone_def fun_ord_def)
+next
+  case 3
+  then show ?case 
+    by auto
+next
+  case 4
+  then show ?case 
+    apply(subst heap.mono_body_fixp[OF mono_heap])
+    apply(rule step)
+    by simp
+qed
+ 
 
 definition member''_body where
   "member''_body r a xs n =  (
@@ -61,7 +159,7 @@ lemma member'_induct:
   apply(rule assms)
   by auto
 
-lemma member_refinement:
+(*lemma member_refinement:
   assumes 
     mono: "\<And>xs. mono_Heap (\<lambda>f. member'_bodyi f xs)"
   and
@@ -85,10 +183,10 @@ lemma member''_refinement:
   apply(rewrite heap.mono_body_fixp[OF mono])
   apply(rewrite member''_body)
   apply(rule step)
-  by simp
+  by simp *)
 
 lemma 
-    "hnr (master_assn' (insert (xs, xsi) F)) (c  xsi) \<Gamma>' (member' x xs)"
+    "hnr (master_assn' (insert (xs, xsi) F)) (c  xsi) \<Gamma>' (member''_opt2 x xs)"
   
   apply(induction rule: member'_induct)
   sorry
@@ -128,5 +226,7 @@ synth_definition member'_impl is [hnr_rule_diff_arr]:
          defer
   apply hnr_diff_arr
   done
+
+
 
 end

@@ -12,7 +12,7 @@ lemma hnr_copy_diff_arr [hnr_rule_diff_arr]:
       (master_assn' (insert (xs, xsi) S)) 
       (return xsi) 
       (\<lambda>xs' xsi'. master_assn' (insert (xs', xsi') S)) 
-      xs"
+      (Some xs)"
   apply(rule hnrI)
   unfolding master_assn'_def
   by sep_auto
@@ -25,7 +25,7 @@ lemma hnr_from_array [hnr_rule_diff_arr]:
     (array_assn xs xsi)
     (Diff_Arr.from_array xsi)
     (\<lambda>xs xsi. master_assn' { (xs, xsi) })
-    (Diff_Arr_From_Arr xs)"
+    (Some (Diff_Arr_From_Arr xs))"
   apply(rule hnrI)
   unfolding master_assn'_def Diff_Arr_From_Arr_def
   by(sep_auto simp: Let_def)
@@ -38,7 +38,7 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
     emp
     (Diff_Arr.from_list xs)
     (\<lambda>xs xsi. master_assn' { (xs, xsi) })
-    (New_Diff_Arr xs)
+    (Some (New_Diff_Arr xs))
   "
   apply(rule hnrI)
   unfolding master_assn'_def New_Diff_Arr_def
@@ -49,7 +49,7 @@ lemma hnr_lookup[hnr_rule_diff_arr]: "
     (master_assn' (insert (xs, xsi) S) * id_assn i ii) 
     (Diff_Arr_Safe.lookup xsi ii)
     (\<lambda>r ri. id_assn r ri * master_assn' S)
-    (xs ! i)"
+    (Some (xs ! i))"
   unfolding id_rel_def master_assn'_def
   apply(rule hnrI)
   apply sep_auto
@@ -65,7 +65,7 @@ lemma hnr_realize: "
     (master_assn' (insert (xs, xsi) S))
     (Diff_Arr.realize xsi)
     (\<lambda> r ri. master_assn' S * array_assn r ri)
-    xs"
+    (Some xs)"
   unfolding id_rel_def master_assn'_def
   apply(rule hnrI)
   apply sep_auto
@@ -81,7 +81,7 @@ lemma hnr_update[hnr_rule_diff_arr]: "
     (master_assn' (insert (xs, xsi) S) * id_assn i ii * id_assn v vi)
     (Diff_Arr_Safe.update xsi ii vi)
     (\<lambda>xs' xsi'. master_assn' (insert (xs', xsi') S))
-    (xs [i:= v])"
+    (Some (xs [i:= v]))"
   unfolding id_rel_def master_assn'_def
   apply(rule hnrI)
   apply(sep_auto)

@@ -2,10 +2,28 @@ theory Hnr
   imports Base
 begin                       
 
-definition hnr where "hnr \<Gamma> c \<Gamma>' a = <\<Gamma>> c <\<lambda>r. \<Gamma>' a r>\<^sub>t"
+definition hnr where "hnr \<Gamma> c \<Gamma>' a = (
+  case a of None \<Rightarrow> True | 
+            Some a \<Rightarrow> <\<Gamma>> c <\<lambda>r. \<Gamma>' a r>\<^sub>t
+)"
 
-lemmas hnrD = hnr_def[THEN iffD1]
-lemmas hnrI = hnr_def[THEN iffD2]
+lemma hnr_none [simp]: "hnr \<Gamma> c \<Gamma>' None"
+  unfolding hnr_def
+  by simp
+
+lemma hnr_alt: "hnr \<Gamma> c \<Gamma>' a = (a \<noteq> None \<longrightarrow> <\<Gamma>> c <\<lambda>r. \<Gamma>' (the a) r>\<^sub>t)"
+  unfolding hnr_def
+  by(auto split: option.splits)
+
+lemmas hnrD = hnr_alt[THEN iffD1, rule_format]
+
+lemma hnrI:
+  assumes
+    "\<And>x. a = Some x \<Longrightarrow> <\<Gamma>> c <\<lambda>r. \<Gamma>' x r>\<^sub>t"
+  shows "hnr \<Gamma> c \<Gamma>' a"
+  using assms
+  unfolding hnr_def
+  by(auto split: option.splits)
 
 definition id_rel where "id_rel a c \<equiv> c = a"
 
@@ -15,12 +33,9 @@ abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a 
 
 named_theorems hnr_rule
 
-lemma hnr_return: "hnr \<Gamma> (return x) (\<lambda>r ri. \<Gamma> * id_assn r ri) x"
+lemma hnr_return: "hnr \<Gamma> (return x) (\<lambda>r ri. \<Gamma> * id_assn r ri) (Some x)"
   unfolding hnr_def id_rel_def
   by sep_auto
-
-find_theorems name: "pre" "<_> _<_>"
-find_consts name: pure
 
 lemma keep_drop_1:
   assumes
@@ -70,8 +85,23 @@ method keep_drop_step methods keep_atom =
 method keep_drop methods keep_atom = 
   rule keep_drop_init, ((keep_drop_step keep_atom)+; fail)
 
+lemma hnr_bind[hnr_rule]:
+  assumes 
+    "hnr \<Gamma> vi \<Gamma>\<^sub>1 v" 
+    "\<And>xi x. hnr (\<Gamma>\<^sub>1 x xi) (fi xi) (\<Gamma>' x xi) (f x)"
+    "\<And>xi x ri r. Keep_Drop (\<Gamma>' x xi r ri) (\<Gamma>'' r ri) (\<Gamma>\<^sub>1' x xi r ri)"
+    "\<And>r ri. Keep_Drop_Simp (\<Gamma>'' r ri) (\<Gamma>''' r ri)" 
+  shows 
+    "hnr \<Gamma> (do { x \<leftarrow> vi; fi x }) \<Gamma>''' (do { x \<leftarrow> v; f x })"
+  supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
+  apply(rule hnrI)
+  apply(sep_auto split: option.splits Option.bind_splits)
+  apply(sep_drule r: assms(3)[unfolded Keep_Drop_def])
+  apply(sep_drule r: assms(4)[unfolded Keep_Drop_Simp_def])
+  by sep_auto
+
 (* Versteh ich noch nicht 100%: *)
-lemma hnr_let[hnr_rule]:
+(* lemma hnr_let[hnr_rule]:
   assumes 
     "hnr \<Gamma> vi \<Gamma>\<^sub>1 v" 
     "\<And>xi x. hnr (\<Gamma>\<^sub>1 x xi) (fi xi) (\<Gamma>' x xi) (f x)"
@@ -84,7 +114,13 @@ lemma hnr_let[hnr_rule]:
   apply sep_auto
   apply(sep_drule r: assms(3)[unfolded Keep_Drop_def])
   apply(sep_drule r: assms(4)[unfolded Keep_Drop_Simp_def])
-  by sep_auto
+  by sep_auto *)
+
+lemma let_to_bind: "(let x = v in f x) = (do { x \<leftarrow> return v; f x }) "
+  by simp
+
+lemma let_to_bind': "(let x = v in f x) = (do { x \<leftarrow> Some v; f x }) "
+  by simp
 
 definition Merge where
   "Merge a b c \<equiv> a \<or>\<^sub>A b \<Longrightarrow>\<^sub>A c"
@@ -141,11 +177,11 @@ lemma hnr_case_list[hnr_rule]:
   apply sep_auto
   using ent_disjI2 fr_refl by blast
 
-lemma hnr_pass: "hnr (A x xi) (return xi) A x"
+lemma hnr_pass: "hnr (A x xi) (return xi) A (Some x)"
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn x"
+lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn (Some x)"
   unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
@@ -172,14 +208,14 @@ lemma hnr_tuple:
 
 lemma hnr_tuple [hnr_rule]: 
   assumes
-    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
-    "\<And>a ai. hnr (\<Gamma>\<^sub>a a ai * true) bi (\<Gamma>\<^sub>b a ai) b"
+    "hnr \<Gamma> ai \<Gamma>\<^sub>a (Some a)"
+    "\<And>a ai. hnr (\<Gamma>\<^sub>a a ai * true) bi (\<Gamma>\<^sub>b a ai) (Some b)"
   shows 
     "hnr 
       \<Gamma>
       (do { ai' \<leftarrow> ai; bi' \<leftarrow> bi; return (ai', bi') })
       (\<lambda>x xi. \<Gamma>\<^sub>b (fst x) (fst xi) (snd x) (snd xi))
-      (a, b)"
+      (Some (a, b))"
   apply(rule hnrI)
    using 
     assms[THEN hnrD]
@@ -215,10 +251,11 @@ lemma hnr_case_tuple:
     "hnr \<Gamma> (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>' (case x of (a, b) \<Rightarrow> c a b)"
   apply(rule hnrI)
   using assms[THEN hnrD]
-  by(sep_auto simp: split_beta)
+  apply(sep_auto simp: split_beta)
+  by fastforce
 
 
-(* TODO: Fallback *)
+(* TODO: Fallback 
 lemma id: "id f (id a) (id b) \<Longrightarrow> f a b"
   by simp
 
@@ -230,7 +267,7 @@ lemma fallback_0: "hnr \<Gamma> (return f) (\<lambda>_ _. \<Gamma>) f"
   by(rule hnr_pass)
 
 lemma fallback_1: "hnr \<Gamma> (return (f x)) (\<lambda>_ _. \<Gamma>) (f x)"
-  by(rule hnr_pass)
+  by(rule hnr_pass) *)
 
 lemma hnr_frame:
   assumes
@@ -239,7 +276,12 @@ lemma hnr_frame:
   shows
     "hnr \<Gamma>\<^sub>P fi (\<lambda> r ri. \<Gamma>' r ri * F) f"
   apply(rule hnrI)
-  by (smt (verit) assms(1) assms(2) assn_aci(10) fi_rule hnrD hoare_triple_def)
+  apply(cases f)
+   apply force
+  apply simp
+  using hnrD[OF assms(2)]
+  apply simp
+  by (smt (verit) assms(1) assn_aci(10) fi_rule hnrD hoare_triple_def)
 
 attribute_setup framed =
     \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [asm_rl, thm]))\<close>
@@ -359,6 +401,7 @@ method hnr_rule methods frame_match_atom uses rule_set =
  | rule hnr_rule hnr_return
 
 method hnr_step methods frame_match_atom keep_atom uses rule_set =
+   (simp only: let_to_bind')?, 
    (hnr_rule frame_match_atom rule_set: rule_set) | keep_drop keep_atom | keep_drop_simp | merge
 
 (* TODO: How to avoid back tracking? *)
