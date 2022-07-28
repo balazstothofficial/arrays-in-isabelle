@@ -65,8 +65,9 @@ definition not_linear where
 definition if_1 where
   "if_1 xs =
    do { 
-      let c1 = 1; 
-      t1 \<leftarrow> if xs = [] 
+      let c1 = 1;
+      let b = (xs = []);
+      t1 \<leftarrow> if b
              then Some xs 
              else do {
                  let t2 = xs[c1 := c1];
@@ -79,7 +80,8 @@ definition if_2 where
   "if_2 xs =
     do { 
       let c1 = 1; 
-      t1 \<leftarrow> if xs = [] 
+      let b = (xs = []);
+      t1 \<leftarrow> if b 
            then Some xs 
            else do { 
               let t1 = xs[c1 := c1]; 
@@ -93,7 +95,8 @@ definition if_3 where
   "if_3 xs =
     do { 
       let c1 = 1; 
-      t1 \<leftarrow> if xs = [] 
+      let b = (xs = []);
+      t1 \<leftarrow> if b
             then do { let c2 = 2; let t1 = xs[c2 := c2]; let t2 = t1[c2:= c2]; Some xs }
             else do { let t1 = xs[c1 := c1]; let t2 = t1[c1:= c1]; Some t2 };
      Some t1 }"
@@ -102,7 +105,8 @@ definition if_4 where
   "if_4 xs = 
     do { 
       let c1 = 1; 
-      t1 \<leftarrow> if True then Some xs else do { let t1 = xs[c1 := c1]; Some t1 }; 
+      let b = True;
+      t1 \<leftarrow> if b then Some xs else do { let t1 = xs[c1 := c1]; Some t1 }; 
       Some t1 
   }"
 
@@ -110,8 +114,9 @@ definition if_5 where
   "if_5 xs = 
     do {
       let c1 = 1; 
-      let c2 = 2; 
-       t1 \<leftarrow> if xs = [] 
+      let c2 = 2;
+      let b = (xs = []); 
+       t1 \<leftarrow> if b
               then Some (xs[c2 := c2]) 
               else Some (xs[c1 := c1]);
       Some t1 }"
@@ -120,7 +125,8 @@ definition if_6 where
   "if_6 xs = do { 
     let c1 = 1; 
     let c2 = 2; 
-    t1 \<leftarrow> if xs = [] 
+    let b = (xs = []);
+    t1 \<leftarrow> if b 
           then do { let t2 = xs[c2 := c2]; let t3 = xs[c1 := c1]; Some t3 } 
           else do { let t2 = xs[c1 := c1]; let t3 = xs[c2 := c1]; Some t3 };
     Some t1 
@@ -129,7 +135,8 @@ definition if_6 where
 definition if_7 where
   "if_7 xs = do {
     let c1 = 1;
-    t \<leftarrow> if True
+    let b = True;
+    t \<leftarrow> if b
          then do { let t1 = xs[c1 := c1]; let t2 = (t1, t1); Some t2 }
          else do { let t1 = xs[c1 := c1]; let t2 = (t1, t1); Some t2 };
     Some t
@@ -143,7 +150,7 @@ definition tuple_list where
   }"
 
 definition nested where
-  "nested xs = do { let c1 = 1; let t1 = xs[c1 := c1]; Some (sequential_1 t1) }"
+  "nested xs = do { let c1 = 1; let t1 = xs[c1 := c1]; sequential_1 t1 }"
 
 definition fallback_1 where
   "fallback_1 xs = do { 
@@ -151,6 +158,15 @@ definition fallback_1 where
     let b = (c1 = c1); 
     t1 \<leftarrow> if b then Some xs else do { let t1 = xs[c1 := c1]; Some t1 }; 
     Some t1 
+  }"
+
+definition fallback_2 where
+  "fallback_2 xs = do { 
+    let c1 = 1; 
+    let t1 = xs[c1 := c1];
+    let b = (t1 = t1); 
+    t2 \<leftarrow> if b then Some xs else do { let t2 = t1[c1 := c1]; Some t2 }; 
+    Some t2 
   }"
 
 definition create_list :: "'a::heap \<Rightarrow> 'a list option" where
@@ -284,11 +300,27 @@ synth_definition tuple_list_arr is [hnr_rule_arr]:
   unfolding tuple_list_def 
   by hnr_arr
 
-(* TODO: Why doesn't this work anymore? *)
 synth_definition nested_arr is 
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (nested xs)"
   unfolding nested_def 
-  apply hnr_step_arr
+  by hnr_arr
+
+synth_definition fallback_1_arr is [hnr_rule_arr]:
+    "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (fallback_1 xs)"
+  unfolding fallback_1_def 
+  apply hnr_arr
+  apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
+  apply(hypsubst)
+  apply(rule refl)
+  by hnr_arr                    
+
+(* TODO: Find way to deal with fallback of non id_assn stuff *)
+synth_definition fallback_2_arr is [hnr_rule_arr]:
+    "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (fallback_2 xs)"
+  unfolding fallback_2_def 
+  apply hnr_arr
+   apply(rule hnr_fallback)
   oops
 
 synth_definition create_list_arr is [hnr_rule_arr]:
@@ -306,7 +338,6 @@ synth_definition create_arr_2_impl is [hnr_rule_arr]:
   unfolding create_arr_2_def 
   by hnr_arr
 
-(* TODO: This somehow just works with diff arrays *)
 synth_definition create_arr_3_impl is [hnr_rule_arr]:
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_arr_3 x y)"
   unfolding create_arr_3_def 
@@ -391,18 +422,20 @@ synth_definition tuple_list_diff_arr is [hnr_rule_diff_arr]:
   unfolding tuple_list_def 
   by hnr_diff_arr
 
-(* TODO: Why doesn't this work anymore? *)
-synth_definition nested_diff_arr is 
+synth_definition nested_diff_arr is [hnr_rule_diff_arr]:
   "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (nested xs)"
   unfolding nested_def 
-  apply hnr_diff_arr
-  oops
+  by hnr_diff_arr
 
-(* TODO: *)
-schematic_goal "hnr (master_assn' {(xs, xsi)}) (?c :: ?'a Heap) ?\<Gamma>' (fallback_1 xs)"
+synth_definition fallback_1_diff_arr is [hnr_rule_diff_arr]:
+    "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (fallback_1 xs)"
   unfolding fallback_1_def 
   apply hnr_diff_arr
-  oops
+  apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
+  apply(hypsubst)
+  apply(rule refl)
+  by hnr_diff_arr
 
 synth_definition create_list_diff_arr is [hnr_rule_diff_arr]: 
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_list x)"
@@ -424,6 +457,8 @@ synth_definition create_diff_arr_2_impl is [hnr_rule_diff_arr]:
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_diff_arr_2 x)"
   unfolding create_diff_arr_2_def 
   apply hnr_step_diff_arr+
+       apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
   oops
                                                  
 synth_definition create_diff_arr_3_impl is [hnr_rule_diff_arr]: 

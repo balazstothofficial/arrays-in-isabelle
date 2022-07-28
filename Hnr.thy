@@ -125,41 +125,62 @@ lemma let_to_bind': "(let x = v in f x) = (do { x \<leftarrow> Some v; f x }) "
 definition Merge where
   "Merge a b c \<equiv> a \<or>\<^sub>A b \<Longrightarrow>\<^sub>A c"
 
-lemma hnr_if[hnr_rule]: 
+lemma hnr_if [hnr_rule]: 
   assumes
-    "hnr \<Gamma> ai \<Gamma>\<^sub>a a"
-    "hnr \<Gamma> bi \<Gamma>\<^sub>b b"
+    "hnr (\<Gamma> * id_assn c ci) ai \<Gamma>\<^sub>a a"
+    "hnr (\<Gamma> * id_assn c ci) bi \<Gamma>\<^sub>b b"
     "\<And>a r. Merge (\<Gamma>\<^sub>a a r) (\<Gamma>\<^sub>b a r) (\<Gamma>\<^sub>c a r)"
   shows 
     "hnr 
-      \<Gamma> 
-      (if c then ai else bi) 
+      (\<Gamma> * id_assn c ci)
+      (if ci then ai else bi) 
       \<Gamma>\<^sub>c 
       (if c then a else b)" 
   supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
   apply(rule hnrI)
   using assms(3)
   unfolding Merge_def
-  apply(sep_auto simp: ent_star_mono)
-  using ent_disjI1 fr_refl apply blast
+  apply(sep_auto simp: ent_star_mono id_rel_def)
+  apply (smt (verit, del_insts) SLN_def SLN_right \<open>a \<noteq> None \<Longrightarrow> <\<Gamma> * id_assn c ci> ai <\<Gamma>\<^sub>a (the a)>\<^sub>t\<close> cons_post_rule ent_disjI1 fr_refl id_rel_def option.distinct(1) option.sel pure_true)
   apply sep_auto
-  using ent_disjI2 fr_refl by blast
+  by (smt (verit) SLN_def SLN_right \<open>b \<noteq> None \<Longrightarrow> <\<Gamma> * id_assn c ci> bi <\<Gamma>\<^sub>b (the b)>\<^sub>t\<close> cons_post_rule ent_disjI2 fr_refl id_rel_def option.distinct(1) option.sel pure_true)
+
 
 lemma hnr_case_nat[hnr_rule]:
   assumes 
-    "hnr \<Gamma> ci0 \<Gamma>\<^sub>a c0"
-    "\<And>n. hnr \<Gamma> (ci n) \<Gamma>\<^sub>b (c n)"
-    "\<And>a r. Merge (\<Gamma>\<^sub>a a r) (\<Gamma>\<^sub>b a r) (\<Gamma>\<^sub>c a r)"
+    "hnr (\<Gamma> * id_assn n  ni) ci0 \<Gamma>\<^sub>a c0"
+    "\<And>n' ni'. hnr (\<Gamma> * id_assn n ni * id_assn n' ni') (ci ni') (\<Gamma>\<^sub>b n' ni') (c n')"
+    "\<And>n ni ri r. Keep_Drop (\<Gamma>\<^sub>b n ni r ri) (\<Gamma>\<^sub>b' r ri) (\<Gamma>Drop n ni r ri)"
+    "\<And>r ri. Keep_Drop_Simp (\<Gamma>\<^sub>b' r ri) (\<Gamma>\<^sub>b'' r ri)" 
+    "\<And>r ri. Merge (\<Gamma>\<^sub>a r ri) (\<Gamma>\<^sub>b'' r ri) (\<Gamma>\<^sub>c r ri)"
   shows
-    "hnr \<Gamma> (case n of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>\<^sub>c (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
+    "hnr (\<Gamma> * id_assn n ni)
+         (case ni of 0 \<Rightarrow> ci0 | Suc n' \<Rightarrow> ci n') \<Gamma>\<^sub>c (case n of 0 \<Rightarrow> c0 | Suc n' \<Rightarrow> c n')"
   supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
   apply(rule hnrI)
-  using assms(3)
+  using assms(5)
   unfolding Merge_def
-  apply(sep_auto split: nat.splits) 
+  apply(sep_auto simp: id_rel_def split: nat.splits) 
+  apply(rule cons_post_rule)
+  apply(rule fi_rule)
+     apply(rule sep_heap_rules)
+  apply simp
+    apply(sep_auto simp: id_rel_def)+
   using ent_disjI1 fr_refl apply blast
-  apply sep_auto
-  using ent_disjI2 fr_refl by blast
+
+  apply(rule cons_post_rule)
+  apply(rule fi_rule)
+     apply(rule sep_heap_rules)
+  apply simp
+    apply(sep_auto simp: id_rel_def)+
+  using assms(3, 4) 
+  unfolding Keep_Drop_def Keep_Drop_Simp_def
+  apply -
+  subgoal premises prems
+    apply(sep_drule r: prems(5))
+    apply(sep_drule r: prems(6))
+    using ent_disjI2 ent_true_drop(1) ent_true_drop(2) prems(1) by blast
+  done
 
 lemma hnr_case_list[hnr_rule]:
   assumes 
@@ -254,37 +275,65 @@ lemma hnr_case_tuple:
   apply(sep_auto simp: split_beta)
   by fastforce
 
+(* 
+  lemma case_prod_rule: 
+  "(\<And>a b. x = (a, b) \<Longrightarrow> <P> f a b <Q>) \<Longrightarrow> <P> case x of (a, b) \<Rightarrow> f a b <Q>"
+  by (auto split: prod.split)
 
-(* TODO: Fallback 
-lemma id: "id f (id a) (id b) \<Longrightarrow> f a b"
-  by simp
+lemma case_list_rule:
+  "\<lbrakk> l=[] \<Longrightarrow> <P> fn <Q>; \<And>x xs. l=x#xs \<Longrightarrow> <P> fc x xs <Q> \<rbrakk> \<Longrightarrow> 
+  <P> case_list fn fc l <Q>"
+  by (auto split: list.split)
 
-lemma "c1 = c1"
-  apply(fo_rule id)
-  by auto 
+lemma case_option_rule:
+  "\<lbrakk> v=None \<Longrightarrow> <P> fn <Q>; \<And>x. v=Some x \<Longrightarrow> <P> fs x <Q> \<rbrakk> 
+  \<Longrightarrow> <P> case_option fn fs v <Q>"
+  by (auto split: option.split)
 
-lemma fallback_0: "hnr \<Gamma> (return f) (\<lambda>_ _. \<Gamma>) f"
-  by(rule hnr_pass)
+lemma case_sum_rule:
+  "\<lbrakk> \<And>x. v=Inl x \<Longrightarrow> <P> fl x <Q>; 
+     \<And>x. v=Inr x \<Longrightarrow> <P> fr x <Q> \<rbrakk> 
+  \<Longrightarrow> <P> case_sum fl fr v <Q>"
+  by (auto split: sum.split)
 
-lemma fallback_1: "hnr \<Gamma> (return (f x)) (\<lambda>_ _. \<Gamma>) (f x)"
-  by(rule hnr_pass) *)
+lemma let_rule: "(\<And>x. x = t \<Longrightarrow> <P> f x <Q>) \<Longrightarrow> <P> Let t f <Q>"
+  by (auto)
+*)
+
+
+(* TODO: Automate *)
+lemma hnr_fallback: 
+  assumes
+    "\<And>h. h \<Turnstile> \<Gamma> \<Longrightarrow> c = ci"
+  shows
+    "hnr \<Gamma> (return ci) (\<lambda> r ri. \<Gamma> * id_assn r ri) (Some c)"
+  apply(rule hnrI)
+  apply(rule hoare_triple_preI)
+  using assms 
+  by(sep_auto simp: id_rel_def)
+
+method extract_pre uses rule =
+  (determ\<open>elim mod_starE rule[elim_format]\<close>)?
+
+lemma models_id_assn:"h \<Turnstile> id_assn x xi \<Longrightarrow> x = xi" 
+  by(simp add: id_rel_def)
 
 lemma hnr_frame:
   assumes
-    "\<Gamma>\<^sub>P \<Longrightarrow>\<^sub>A \<Gamma> * F"
     "hnr \<Gamma> fi \<Gamma>' f"
+    "\<Gamma>\<^sub>P \<Longrightarrow>\<^sub>A \<Gamma> * F"
   shows
     "hnr \<Gamma>\<^sub>P fi (\<lambda> r ri. \<Gamma>' r ri * F) f"
   apply(rule hnrI)
   apply(cases f)
    apply force
   apply simp
-  using hnrD[OF assms(2)]
+  using hnrD[OF assms(1)]
   apply simp
-  by (smt (verit) assms(1) assn_aci(10) fi_rule hnrD hoare_triple_def)
+  by (smt (verit) assms(2) assn_aci(10) fi_rule hnrD hoare_triple_def)
 
 attribute_setup framed =
-    \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [asm_rl, thm]))\<close>
+    \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [thm, asm_rl]))\<close>
     \<open>Add frame to hnr rule\<close>
 
 lemma prepare_frame_1:
