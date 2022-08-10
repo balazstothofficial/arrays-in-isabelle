@@ -9,10 +9,10 @@ definition create_diff_arr where
   }"
 
 definition test where "test = do {
-  r \<leftarrow> create_diff_arr 3 (5::nat);
-  y  \<leftarrow> Diff_Arr.update r 1 (7::nat);
+  r  \<leftarrow> create_diff_arr 3 (5::nat);
+  y  \<leftarrow> Diff_Arr.update_tailrec r 1 (7::nat);
   y' \<leftarrow> Diff_Arr.update r 1 (8::nat);
-  x \<leftarrow> Diff_Arr.lookup y 1;
+  x  \<leftarrow> Diff_Arr.lookup y 1;
   return x
 }"
 

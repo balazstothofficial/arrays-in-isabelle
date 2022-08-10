@@ -9,7 +9,7 @@ lemma hnr_new:
     (id_assn n ni * id_assn x xi) 
     (Array.new ni xi) 
     (\<lambda>xs xsi. xsi \<mapsto>\<^sub>a xs * id_assn n ni * id_assn x xi) 
-    (replicate n x)"
+    (Some (replicate n x))"
   unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
@@ -22,7 +22,7 @@ lemma hnr_array_of_list [hnr_rule_arr]:
     emp
     (Array.of_list xs) 
     (\<lambda>xs xsi. xsi \<mapsto>\<^sub>a xs) 
-    (New_Arr xs)"
+    (Some (New_Arr xs))"
   unfolding id_rel_def New_Arr_def
   apply(rule hnrI)
   by sep_auto
@@ -32,7 +32,7 @@ lemma hnr_array_lookup [hnr_rule_arr]: "
      (xsi \<mapsto>\<^sub>a xs * id_assn i ii)
      (Array_Safe.lookup xsi ii) 
      (\<lambda> r ri. xsi \<mapsto>\<^sub>a xs * id_assn r ri) 
-     (xs ! i)"
+     (Some (xs ! i))"
   unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
@@ -42,13 +42,13 @@ lemma hnr_array_update [hnr_rule_arr]: "
       (xsi \<mapsto>\<^sub>a xs * id_assn i ii * id_assn v vi) 
       (Array_Safe.update ii vi xsi) 
       array_assn
-      (xs [i:= v])"
+      (Some (xs [i:= v]))"
   unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
 
 lemma hnr_copy_arr [hnr_rule_arr]:
-  "hnr (array_assn x xi) (return xi) array_assn x"
+  "hnr (array_assn x xi) (return xi) array_assn (Some x)"
   using hnr_pass by fastforce
 
 method ent_refl = rule ent_refl

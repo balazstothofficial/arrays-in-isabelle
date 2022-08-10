@@ -2,131 +2,141 @@ theory Example_CYK
   imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" Definition_Utils
 begin
 
+(* TODO: Verify with original implementation from CYK.thy *)
 datatype ('n, 't) RHS = NonTerminals 'n 'n | Terminal 't 
 
 type_synonym ('n, 't) CNG = "('n \<times> ('n, 't) RHS) list"
 
-(* 
-  1. Write as case on list. How should HNR rule look like for it? 
-     Go via length of (diff-)arr
-  2. How to handle recursion?
-*)
-fun member :: "'a \<Rightarrow> 'a list \<Rightarrow> bool" where 
-  "member a [] = False" 
-| "member a (x#xs) = (x = a \<or> member a xs)"
+fun member_original :: "'a \<Rightarrow> 'a list \<Rightarrow> bool" where 
+  "member_original a [] = False" 
+| "member_original a (x#xs) = (x = a \<or> member_original a xs)"
 
-fun member' :: "'a \<Rightarrow> 'a list \<Rightarrow> bool" where 
-  "member' a xs = (
-    case xs of
-      [] \<Rightarrow> False
-    | x#xs \<Rightarrow> (x = a \<or> member' a xs)
-  )" 
-
-fun member'' :: "'a \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" where
-  "member'' a xs n = (case n of 
+(* TODO: Automatic rewriting to index-based iteration if tail is unused *)
+fun member :: "'a \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" where
+  "member a xs n = (case n of 
             0 \<Rightarrow> False 
-         | (Suc n) \<Rightarrow> (xs ! n = a \<or> member'' a xs n)
+         | (Suc n) \<Rightarrow> (xs ! n = a \<or> member a xs n)
   )"
-print_theorems
-declare member''.simps[simp del]
+declare member.simps[simp del]
 
+abbreviation member' where
+  "member' a xs \<equiv> member a xs (length xs)"
 
-definition member''_body where
-  "member''_body r a xs n =  (
+definition member_opt where
+  "member_opt a xs \<equiv> option.fixp_fun (\<lambda> member_opt n. 
+    case n of 
+      0     \<Rightarrow> Some False 
+    | Suc n \<Rightarrow> do {
+        c1 \<leftarrow> Some (xs ! n);
+        let c2 = (c1 = a);
+        c3 \<leftarrow> member_opt n;
+        let c4 = c2 \<or> c3;
+        Some c4
+      }
+  )"
+
+schematic_goal member_opt_unfold: "member_opt a xs n \<equiv> ?v"
+  apply(rule gen_code_thm_option_fixp[OF member_opt_def])
+  by(partial_function_mono)
+
+thm gen_code_thm_option_fixp option.mono_body_fixp
+find_theorems "option.fixp_fun"
+
+lemma member_opt_termination: "member_opt a xs n = Some (member a xs n)"
+  apply(induction a xs n rule: member.induct)
+  apply(simp(no_asm) add: member.simps member_opt_unfold)
+  by(auto split: nat.splits)
+ 
+definition member_body where
+  "member_body r a xs n =  (
     case n of
-      0 \<Rightarrow> False
-    | (Suc n) \<Rightarrow> (let c1 = xs ! n; c2 = (c1 = a); c3 = r n; c4 = c2 \<or> c3 in c4)
+      0    \<Rightarrow> False
+    | Suc n \<Rightarrow> let c1 = xs ! n; c2 = (c1 = a); c3 = r n; c4 = c2 \<or> c3 in c4
   )"
 
-definition member'_body where
-  "member'_body r a xs =  (
-    case xs of
-      [] \<Rightarrow> False
-    | x#xs \<Rightarrow> (x = a \<or> r a xs)
-  )"
+lemma member_body: "member a xs = member_body (member a xs) a xs"
+  unfolding member_body_def fun_eq_iff Let_def
+  by(auto simp: member.simps)
 
-lemma member'_body: "member' = member'_body member'"
-  unfolding member'_body_def fun_eq_iff
-  by auto
-
-lemma member''_body: "member'' a xs = member''_body (member'' a xs) a xs"
-  unfolding member''_body_def fun_eq_iff Let_def
-  by(auto simp: member''.simps)
-
-lemma member'_induct:
-  assumes "\<And>xs r. (\<And>xs'. length xs' < length xs \<Longrightarrow> P (r a xs')) \<Longrightarrow> P (member'_body r a xs)"
-  shows "P (member' a xs)"
-  apply(induction "length xs" arbitrary: xs rule: nat_less_induct)
-  apply(subst member'_body)
-  apply(rule assms)
-  by auto
-
-lemma member_refinement:
-  assumes 
-    mono: "\<And>xs. mono_Heap (\<lambda>f. member'_bodyi f xs)"
-  and
-    step: "\<And>r ri xs xsi. (\<And>xs' xsi'. length xs' < length xs \<Longrightarrow> hnr (\<Gamma> xs' xsi') (ri xsi')  (\<Gamma>' xs' xsi') (r a xs')) 
-    \<Longrightarrow> hnr (\<Gamma> xs xsi) (member'_bodyi ri xsi) (\<Gamma>' xs xsi) (member'_body r a xs)"
-  shows "hnr (\<Gamma> xs xsi) (heap.fixp_fun member'_bodyi xsi) (\<Gamma>' xs xsi) (member' a xs)"
-  apply(induction "length xs" arbitrary: xs xsi rule: nat_less_induct)
-  apply(rewrite heap.mono_body_fixp[OF mono])
-  apply(rewrite member'_body)
-  apply(rule step)
-  by simp
-  
-lemma member''_refinement:
-  assumes 
-    mono: "\<And>xs. mono_Heap (\<lambda>f. member''_bodyi f xs)"
-  and
-    step: "\<And>r ri n. (\<And>n'. n' < n \<Longrightarrow> hnr (\<Gamma>) (ri n')  (\<Gamma>') (r n')) 
-    \<Longrightarrow> hnr (\<Gamma>) (member''_bodyi ri n) (\<Gamma>') (member''_body r a xs n)"
-  shows "hnr (\<Gamma>) (heap.fixp_fun member''_bodyi n) (\<Gamma>') (member'' a xs n)"
-  apply(induction n rule: nat_less_induct)
-  apply(rewrite heap.mono_body_fixp[OF mono])
-  apply(rewrite member''_body)
-  apply(rule step)
-  by simp
-
-lemma 
-    "hnr (master_assn' (insert (xs, xsi) F)) (c  xsi) \<Gamma>' (member' x xs)"
-  
-  apply(induction rule: member'_induct)
-  sorry
+fun match_prods_original :: "('n, 't) CNG \<Rightarrow> 'n list \<Rightarrow> 'n list \<Rightarrow> 'n list" where 
+  "match_prods_original [] ls rs = []" 
+| "match_prods_original ((X, NonTerminals A B)#ps) ls rs = (
+    if member_original A ls \<and> member_original B rs 
+    then X # match_prods_original ps ls rs
+    else match_prods_original ps ls rs
+  )" 
+| "match_prods_original ((X, Terminal a)#ps) ls rs = match_prods_original ps ls rs"
 
 fun match_prods :: "('n, 't) CNG \<Rightarrow> 'n list \<Rightarrow> 'n list \<Rightarrow> 'n list" where 
-  "match_prods [] ls rs = []" 
-| "match_prods ((X, NonTerminals A B)#ps) ls rs = (
-    if member A ls \<and> member B rs 
-    then X # match_prods ps ls rs
-    else match_prods ps ls rs
-  )" 
-| "match_prods ((X, Terminal a)#ps) ls rs = match_prods ps ls rs"
+  "match_prods ps ls rs = (
+    case ps of
+      []   \<Rightarrow> []
+    | p#ps \<Rightarrow> 
+      (case p of
+       (X, t) \<Rightarrow> 
+        (case t of
+          NonTerminals A B \<Rightarrow> 
+            if member' A ls \<and> member' B rs 
+            then X # match_prods ps ls rs
+            else match_prods ps ls rs
+        | Terminal a \<Rightarrow> match_prods ps ls rs
+        )
+      )
+  )"
 
 function inner :: "('n, 't) CNG \<Rightarrow> (nat \<times> nat \<Rightarrow> 'n list) \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'n list" where
  "inner G T i k j = (
     if k < j 
-    then match_prods G (T(i, k)) (T(i + k, j - k)) @ inner G T i (k + 1) j
+    then match_prods_original G (T(i, k)) (T(i + k, j - k)) @ inner G T i (k + 1) j
     else []
   )"
 by pat_completeness auto
+termination
+  by(relation "measure(\<lambda>(a, b, c, d, e). e - d)", rule wf_measure, simp)
+
+function main :: "('n, 't) CNG \<Rightarrow> (nat \<times> nat \<Rightarrow> 'n list) \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> (nat \<times> nat \<Rightarrow> 'n list)"
+where "main G T len i j = (let T' = T((i, j) := inner G T i 1 j) in
+                            if i + j < len then main G T' len (i + 1) j
+                            else if j < len then main G T' len 0 (j + 1)
+                                 else T')"
+by pat_completeness auto
 termination 
-by(relation "measure(\<lambda>(a, b, c, d, e). e - d)", rule wf_measure, simp)
+by(relation "inv_image (less_than <*lex*> less_than) (\<lambda>(a, b, c, d, e). (c - e, c - (d + e)))", rule wf_inv_image, rule wf_lex_prod, (rule wf_less_than)+, simp_all)
+
 
 context
   fixes x :: "'a :: heap"
+  fixes xsi :: "'a cell ref"
 begin
 
-
-synth_definition member'_impl is [hnr_rule_diff_arr]: 
-    "hnr (master_assn' (insert (xs, xsi) F)) ((\<hole>  xsi):: ?'a Heap) ?\<Gamma>' (member'' x xs n)"
-  apply(rule member''_refinement)
-   defer
-  unfolding member''_body_def
-   apply hnr_diff_arr
-  apply(subgoal_tac "c1 = xi", hypsubst)
-          apply(rule hnr_return)
-         defer
+synth_definition member_impl is [hnr_rule_diff_arr]:
+  "hnr (master_assn' (insert (xs, xsi) F) * id_assn n ni) (\<hole>:: ?'a Heap) ?\<Gamma>' (member_opt x xs n)"
+  unfolding member_opt_def
+  (* Could this problem partly be solved by the rule that the terminating branches always appear
+     first? *)
+  supply r = hnr_recursion[where 
+      \<Gamma> = "(\<lambda>n ni. master_assn' (insert (xs, xsi) F) * id_assn n ni)" and
+      \<Gamma>' = "(\<lambda>n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)"] 
+  apply(rule r)
+  apply partial_function_mono
   apply hnr_diff_arr
+  apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
+  apply(hypsubst)
+  apply(rule refl)
+  apply hnr_diff_arr
+  apply(rule hnr_frame)
+  apply assumption
+  apply(frame_inference_2 \<open>rule ent_refl\<close>)
+  apply hnr_diff_arr
+  apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
+  apply(hypsubst)
+  apply(rule refl)
+  apply hnr_diff_arr
+  apply partial_function_mono
   done
+
+end
 
 end

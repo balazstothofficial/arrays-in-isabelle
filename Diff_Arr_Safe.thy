@@ -21,11 +21,11 @@ qualified definition update where
     else return arr
   }"
 
-qualified definition update' where
-  "update' arr i v = do {
+qualified definition update_tailrec where
+  "update_tailrec arr i v = do {
     len \<leftarrow> Diff_Arr.length arr;
     if i < len
-    then Diff_Arr.update' arr i v 
+    then Diff_Arr.update_tailrec arr i v 
     else return arr
   }"
 
@@ -57,18 +57,18 @@ lemma update_safe [sep_heap_rules]: "
   apply(rule fi_rule[OF update, where F = emp])
   by sep_auto+
 
-lemma update'_safe [sep_heap_rules]: "
+lemma update_tailrec_safe [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
-     Diff_Arr_Safe.update' diff_arr i v
+     Diff_Arr_Safe.update_tailrec diff_arr i v
   <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') 
       \<and> (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
-  unfolding Diff_Arr_Safe.update'_def
+  unfolding Diff_Arr_Safe.update_tailrec_def
   apply sep_auto
   apply(rule fi_rule[OF length, where F = emp])
   apply sep_auto+
   apply(rule cons_post_rule)
-  apply(rule fi_rule[OF update', where F = emp])
+  apply(rule fi_rule[OF update_tailrec, where F = emp])
   by sep_auto+
 
 end
