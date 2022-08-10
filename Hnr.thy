@@ -116,10 +116,7 @@ lemma hnr_bind[hnr_rule]:
   apply(sep_drule r: assms(4)[unfolded Keep_Drop_Simp_def])
   by sep_auto *)
 
-lemma let_to_bind: "(let x = v in f x) = (do { x \<leftarrow> return v; f x }) "
-  by simp
-
-lemma let_to_bind': "(let x = v in f x) = (do { x \<leftarrow> Some v; f x }) "
+lemma let_to_bind: "(let x = v in f x) = (do { x \<leftarrow> Some v; f x }) "
   by simp
 
 definition Merge where
@@ -145,6 +142,60 @@ lemma hnr_if [hnr_rule]:
   apply sep_auto
   by (smt (verit) SLN_def SLN_right \<open>b \<noteq> None \<Longrightarrow> <\<Gamma> * id_assn c ci> bi <\<Gamma>\<^sub>b (the b)>\<^sub>t\<close> cons_post_rule ent_disjI2 fr_refl id_rel_def option.distinct(1) option.sel pure_true)
 
+lemma hnr_case_sum[hnr_rule]:
+  assumes 
+    "\<And>s' si'. hnr (\<Gamma> * id_assn s si * id_assn s' si') (cli si') (\<Gamma>\<^sub>a s' si') (cl s')"
+    "\<And>n ni ri r. Keep_Drop (\<Gamma>\<^sub>a n ni r ri) (\<Gamma>\<^sub>a' r ri) (\<Gamma>Dropa n ni r ri)"
+    "\<And>r ri. Keep_Drop_Simp (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)" 
+
+    "\<And>s' si'. hnr (\<Gamma> * id_assn s si * id_assn s' si') (cri si') (\<Gamma>\<^sub>b s' si') (cr s')"
+    "\<And>n ni ri r. Keep_Drop (\<Gamma>\<^sub>b n ni r ri) (\<Gamma>\<^sub>b' r ri) (\<Gamma>Dropb n ni r ri)"
+    "\<And>r ri. Keep_Drop_Simp (\<Gamma>\<^sub>b' r ri) (\<Gamma>\<^sub>b'' r ri)" 
+
+    "\<And>r ri. Merge (\<Gamma>\<^sub>a'' r ri) (\<Gamma>\<^sub>b'' r ri) (\<Gamma>\<^sub>c r ri)"
+  shows
+    "hnr (\<Gamma> * id_assn s si)
+         (case si of Inl l \<Rightarrow> cli l | Inr r \<Rightarrow> cri r) \<Gamma>\<^sub>c (case s of Inl l \<Rightarrow> cl l | Inr r \<Rightarrow> cr r)"
+  supply[sep_heap_rules] = assms(1, 4)[THEN hnrD]
+  
+  apply(rule hnrI)
+  using assms(7)
+  unfolding Merge_def
+  apply(sep_auto simp: id_rel_def split: sum.splits) 
+
+  subgoal
+    apply(rule cons_post_rule)
+    apply(rule fi_rule)
+    apply(rule sep_heap_rules)
+    apply simp
+    apply(sep_auto simp: id_rel_def)+
+  
+    using assms(2, 3)
+    unfolding Keep_Drop_def Keep_Drop_Simp_def
+    apply -
+    subgoal premises prems
+      apply(sep_drule r: prems(5))
+      apply(sep_drule r: prems(6))
+      using ent_disjI1 ent_true_drop(1) ent_true_drop(2) prems(1) by blast
+    done
+  
+  subgoal
+    apply(rule cons_post_rule)
+    apply(rule fi_rule)
+    apply(rule sep_heap_rules)
+    apply simp
+    apply(sep_auto simp: id_rel_def)+
+
+    using assms(5, 6)
+    unfolding Keep_Drop_def Keep_Drop_Simp_def
+    apply -
+    subgoal premises prems
+      apply(sep_drule r: prems(5))
+      apply(sep_drule r: prems(6))
+      using ent_disjI2 ent_true_drop(1) ent_true_drop(2) prems(1) by blast
+    done
+
+  done
 
 lemma hnr_case_nat[hnr_rule]:
   assumes 
@@ -167,7 +218,6 @@ lemma hnr_case_nat[hnr_rule]:
   apply simp
     apply(sep_auto simp: id_rel_def)+
   using ent_disjI1 fr_refl apply blast
-
   apply(rule cons_post_rule)
   apply(rule fi_rule)
      apply(rule sep_heap_rules)
@@ -206,26 +256,6 @@ lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn (Some x)"
   unfolding id_rel_def
   apply(rule hnrI)
   by sep_auto
-
-
-(*
-lemma hnr_tuple: 
-  assumes
-    "hnr \<Gamma> (return ai) \<Gamma>\<^sub>a a"
-    "hnr (\<Gamma>\<^sub>a a ai * true) (return bi) (\<Gamma>\<^sub>b a ai) b"
-  shows 
-    "hnr 
-      \<Gamma>
-      (return (ai, bi))
-      (\<lambda>(a, b)(ai, bi). \<Gamma>\<^sub>b a ai b bi)
-      (a, b)"
-  apply(rule hnrI)
-  using 
-    assms[THEN hnrD]
-    htriple_return_entails[of \<Gamma> ai "\<lambda>ai. \<Gamma>\<^sub>a a ai * true"] 
-    htriple_return_entails[of "\<Gamma>\<^sub>a a ai * true" bi "\<lambda>bi. \<Gamma>\<^sub>b a ai b bi * true"]
-    ent_trans[of \<Gamma>]
-  by sep_auto *)
 
 lemma hnr_tuple [hnr_rule]: 
   assumes
@@ -439,6 +469,66 @@ schematic_goal
 
 end
 
+lemma [simp]: "flat_lub b {} = b"
+  by (simp add: flat_lub_def)
+
+lemma [simp]: "fun_lub lub {} = (\<lambda>_. lub {})"
+  by (simp add: fun_lub_def)
+
+lemma admissible_fun:
+    fixes le:: "'a \<Rightarrow> 'a \<Rightarrow> bool" and Q :: "'b \<Rightarrow> 'a \<Rightarrow> bool"
+    assumes adm: "\<And>x. ccpo.admissible lub le (Q x)"
+    shows "ccpo.admissible  (fun_lub lub) (fun_ord le) (\<lambda>f. \<forall>x. Q x (f x))"
+  proof (rule ccpo.admissibleI)
+    fix A :: "('b \<Rightarrow> 'a) set"
+    assume Q: "\<forall>f\<in>A. \<forall>x. Q x (f x)"
+    assume ch: "Complete_Partial_Order.chain (fun_ord le) A"
+    assume "A \<noteq> {}"
+    hence non_empty: "\<And>a. {y. \<exists>f\<in>A. y = f a} \<noteq> {}" by auto
+    show "\<forall>x. Q x (fun_lub lub A x)"
+      unfolding fun_lub_def
+      by (rule allI, rule ccpo.admissibleD[OF adm chain_fun[OF ch] non_empty])
+        (auto simp: Q)
+  qed
+
+lemma admissible_flat: "ccpo.admissible (flat_lub b) (flat_ord b) (P)"
+  apply (rule ccpo.admissibleI)
+  by (metis all_not_in_conv flat_interpretation flat_lub_in_chain flat_ord_def partial_function_definitions.lub_upper)
+
+lemma hnr_recursion:
+  assumes 
+    mono_option: "\<And>x. mono_option (\<lambda>r. f r x)"
+  and
+    step: "\<And>r ri x xi. (\<And>x' xi'. hnr (\<Gamma> x' xi') (ri xi') (\<Gamma>' x' xi') (r x'))
+        \<Longrightarrow> hnr (\<Gamma> x xi) (fi ri xi) (\<Gamma>' x xi) (f r x)"
+  and
+    mono_heap: "\<And>x. mono_Heap (\<lambda>r. fi r x)"
+  shows  
+    "hnr (\<Gamma> x xi) (heap.fixp_fun fi xi) (\<Gamma>' x xi) (option.fixp_fun f x)"
+proof(induction arbitrary: x xi rule: ccpo.fixp_induct[OF option.ccpo])
+  case 1
+  then show ?case 
+    apply(rule admissible_fun)
+    by(rule admissible_flat)
+next
+  case 2
+  then show ?case 
+    using mono_option 
+    by(auto simp: monotone_def fun_ord_def)
+next
+  case 3
+  then show ?case 
+    by auto
+next
+  case 4
+  then show ?case 
+    apply(subst heap.mono_body_fixp[OF mono_heap])
+    apply(rule step)
+    by simp
+qed
+
+method_setup partial_function_mono = \<open>Scan.succeed (SIMPLE_METHOD' o Partial_Function.mono_tac)\<close>
+
 lemma merge_refl: "Merge a a a"
   unfolding Merge_def
   by simp
@@ -450,7 +540,7 @@ method hnr_rule methods frame_match_atom uses rule_set =
  | rule hnr_rule hnr_return
 
 method hnr_step methods frame_match_atom keep_atom uses rule_set =
-   (simp only: let_to_bind')?, 
+   (simp only: let_to_bind)?, 
    (hnr_rule frame_match_atom rule_set: rule_set) | keep_drop keep_atom | keep_drop_simp | merge
 
 (* TODO: How to avoid back tracking? *)

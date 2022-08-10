@@ -213,6 +213,11 @@ definition create_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" wher
     let a = New_Arr [xs]; let b = Diff_Arr_From_Arr a; Some b 
   }" 
 
+definition nested_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" where
+  "nested_arr_diff_arr xs = do { 
+    let a = New_Arr [xs]; let b = New_Diff_Arr a; Some b 
+  }"              
+
 (* HNR Array *)
 
 synth_definition sequential_1_arr is [hnr_rule_arr]: 
@@ -320,7 +325,7 @@ synth_definition fallback_2_arr is [hnr_rule_arr]:
     "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (fallback_2 xs)"
   unfolding fallback_2_def 
   apply hnr_arr
-   apply(rule hnr_fallback)
+  apply(rule hnr_fallback)
   oops
 
 synth_definition create_list_arr is [hnr_rule_arr]:
@@ -457,8 +462,7 @@ synth_definition create_diff_arr_2_impl is [hnr_rule_diff_arr]:
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_diff_arr_2 x)"
   unfolding create_diff_arr_2_def 
   apply hnr_step_diff_arr+
-       apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
+  apply(rule hnr_fallback)
   oops
                                                  
 synth_definition create_diff_arr_3_impl is [hnr_rule_diff_arr]: 
@@ -478,6 +482,13 @@ synth_definition create_diff_arr_arr_impl is [hnr_rule_diff_arr]:
   apply hnr_arr
   by hnr_diff_arr
 
-export_code create_diff_arr_4_impl in SML_imp module_name foo
+(* TODO: Nested lists *)
+synth_definition nested_arr_diff_arr_impl is [hnr_rule_diff_arr]: 
+  "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (nested_arr_diff_arr x)"
+  unfolding nested_arr_diff_arr_def 
+  apply hnr_arr
+  oops
+
+export_code if_6_diff_arr in SML_imp module_name if_6
 
 end

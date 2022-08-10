@@ -61,10 +61,10 @@ abbreviation update_if_none where
   "update_if_none m i v \<equiv> (case m i of None \<Rightarrow> m(i \<mapsto> v) | Some _ \<Rightarrow> m)"
 
 (* Tailrec version, ask Peter if this makes sense *)
-qualified partial_function (heap) realize' :: 
-  "('a::heap) diff_arr \<Rightarrow> (nat \<rightharpoonup> 'a) \<Rightarrow> 'a array Heap" 
+qualified partial_function (heap) realize_tailrec :: 
+  "(nat \<rightharpoonup> 'a) \<Rightarrow> ('a::heap) diff_arr \<Rightarrow> 'a array Heap" 
 where
-  "realize' diff_arr upds = do {
+  "realize_tailrec upds diff_arr = do {
     cell \<leftarrow> !diff_arr;
      case cell of
         Array arr \<Rightarrow> do {
@@ -72,35 +72,14 @@ where
             xs  \<leftarrow> Array.freeze arr;
             Array.make len (\<lambda>i. case upds i of None \<Rightarrow> List.nth xs i | Some v \<Rightarrow> v)
         }
-      | Upd i v diff_arr \<Rightarrow> realize' diff_arr (update_if_none upds i v)
+      | Upd i v diff_arr \<Rightarrow> realize_tailrec (update_if_none upds i v) diff_arr
   }"
-declare realize'.simps[code]
-
-qualified partial_function (heap) update :: 
-    "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a diff_arr Heap"
-where
-  "update diff_arr i v = do {
-      cell \<leftarrow> !diff_arr;
-      case cell of
-        Array arr \<Rightarrow> do {
-          new_diff_arr \<leftarrow> ref (Array arr);
-          old_v \<leftarrow> Array.nth arr i;
-          diff_arr :=\<^sub>R Upd i old_v new_diff_arr;
-          Array.upd i v arr;
-          return new_diff_arr
-        }
-      | Upd _ _ _ \<Rightarrow> do {
-          arr \<leftarrow> realize diff_arr;
-          Array.upd i v arr;
-          ref (Array arr) 
-        }
-  }"
-declare update.simps[code]
+declare realize_tailrec.simps[code]
 
 qualified partial_function (heap) update' :: 
-    "('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a diff_arr Heap"
+    "('a cell ref \<Rightarrow> 'a array Heap) \<Rightarrow>('a::heap) diff_arr \<Rightarrow> nat \<Rightarrow> 'a::heap \<Rightarrow> 'a diff_arr Heap"
 where
-  "update' diff_arr i v = do {
+  "update' realize_impl diff_arr i v = do {
       cell \<leftarrow> !diff_arr;
       case cell of
         Array arr \<Rightarrow> do {
@@ -111,13 +90,16 @@ where
           return new_diff_arr
         }
       | Upd _ _ _ \<Rightarrow> do {
-          arr \<leftarrow> realize' diff_arr Map.empty;
+          arr \<leftarrow> realize_impl diff_arr;
           Array.upd i v arr;
           ref (Array arr) 
         }
   }"
+declare update'.simps[code]
 
-find_theorems name: "heap." name: "fix"
+abbreviation update where "update \<equiv> update' realize"
+
+abbreviation update_tailrec where "update_tailrec \<equiv> update' (realize_tailrec Map.empty)"
 
 qualified partial_function (heap) length :: 
   "('a::heap) diff_arr \<Rightarrow> nat Heap" 
@@ -174,7 +156,7 @@ lemma from_list [sep_heap_rules]:
   by(sep_auto simp: Let_def)
 
 lemma lookup_aux: 
-  "<\<up>(t \<turnstile> xs \<sim>\<^sub>n a \<and> i < List.length xs) * master_assn t >
+  "<\<up>(t \<turnstile> xs \<sim>\<^sub>n a \<and> i < List.length xs) * master_assn t>
       lookup a i 
    <\<lambda>r. master_assn t * \<up>(r = xs!i)>"
 proof(induction n arbitrary: xs a)
@@ -225,42 +207,6 @@ next
     by sep_auto+    
 qed
 
-lemma helper: "i < List.length xs' \<Longrightarrow>
-  (case (case upds i of None \<Rightarrow> upds(i \<mapsto> x) | Some x \<Rightarrow> upds) i' of 
-     None \<Rightarrow> xs' ! i'
-   | Some v \<Rightarrow> v) = 
-  (case upds i' of None \<Rightarrow> xs'[i := x] ! i' | Some v \<Rightarrow> v)"
-  by(auto simp: nth_list_update split: option.splits)
-
-lemma realize'_aux: 
- "<master_assn t * \<up>(t \<turnstile> xs \<sim>\<^sub>n diff_arr)> 
-     realize' diff_arr upds
-  <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a 
-        (map (\<lambda>i. case upds i of None \<Rightarrow> xs ! i | Some v \<Rightarrow> v) [0..<List.length xs])>" 
-proof(induction n arbitrary: t diff_arr xs upds)
-  case 0
-  then show ?case
-    apply sep_auto
-    apply(subst realize'.simps)
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    apply(sep_drule r: close_master_assn_array)
-    by(sep_auto simp: map_nth)
-next
-  case (Suc n)
-  then show ?case
-    apply sep_auto
-    apply(subst realize'.simps)
-    apply(sep_drule r: open_master_assn)
-    apply sep_auto
-    apply(sep_drule r: close_master_assn_upd)
-    apply sep_auto+
-    subgoal for i x a' xs'
-      using Suc[of t xs' a' "update_if_none upds i x "]
-      by(sep_auto simp: helper)
-    done
-qed
-
 lemma realize [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
      realize diff_arr
@@ -269,12 +215,49 @@ lemma realize [sep_heap_rules]:
   using realize_aux[of t]
   by sep_auto
 
-lemma realize' [sep_heap_rules]: 
+lemma realize_tailrec_aux: 
+ "<master_assn t * \<up>(t \<turnstile> xs \<sim>\<^sub>n diff_arr)> 
+     realize_tailrec upds diff_arr 
+  <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a 
+        (map (\<lambda>i. case upds i of None \<Rightarrow> xs ! i | Some v \<Rightarrow> v) [0..<List.length xs])>" 
+proof(induction n arbitrary: t diff_arr xs upds)
+  case 0
+  then show ?case
+    apply sep_auto
+    apply(subst realize_tailrec.simps)
+    apply(sep_drule r: open_master_assn)
+    apply sep_auto
+    apply(sep_drule r: close_master_assn_array)
+    by(sep_auto simp: map_nth)
+next
+  case (Suc n)
+  
+  have [simp]: "\<And>i i' xs' upds x. i < List.length xs' \<Longrightarrow>
+  (case (case upds i of None \<Rightarrow> upds(i \<mapsto> x) | Some x \<Rightarrow> upds) i' of 
+     None \<Rightarrow> xs' ! i'
+   | Some v \<Rightarrow> v) = 
+  (case upds i' of None \<Rightarrow> xs'[i := x] ! i' | Some v \<Rightarrow> v)"
+  by(auto simp: nth_list_update split: option.splits)
+
+  from Suc show ?case
+    apply sep_auto
+    apply(subst realize_tailrec.simps)
+    apply(sep_drule r: open_master_assn)
+    apply sep_auto
+    apply(sep_drule r: close_master_assn_upd)
+    apply sep_auto+
+    subgoal for i x a' xs'
+      using Suc[of t xs' a' "update_if_none upds i x "]
+      by sep_auto
+    done
+qed
+
+lemma realize_tailrec [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
-     Diff_Arr.realize' diff_arr Map.empty
+     realize_tailrec Map.empty diff_arr 
    <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a xs>" 
   unfolding diff_arr_rel_def
-  using realize'_aux[of t xs _ diff_arr Map.empty]
+  using realize_tailrec_aux[of t xs _ diff_arr Map.empty]
   by(sep_auto simp: map_nth)
 
 lemma update_diff_arr_rel: "\<lbrakk>
@@ -324,57 +307,21 @@ next
     by blast
    
   with unfold_diff_arr_rel show ?case
-    apply sep_auto
+    apply -
     apply(rule exI[where x = "Suc n''"])
-    by sep_auto
-qed
-
-lemma update_aux: 
-  assumes
-    "i < List.length xs"
-    "t \<turnstile> xs \<sim>\<^sub>n diff_arr"
-  shows
-    "<master_assn t> 
-       update diff_arr i v
-     <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
-       \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
-         (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
-proof(cases "n = 0")
-  case True
-  with assms show ?thesis
-      unfolding diff_arr_rel_def
-      apply(simp add: update.simps)
-      apply(hoare_triple_preI rule: master_assn_distinct)
-      apply(sep_drule r: open_master_assn)
-      apply(sep_auto eintros del: exI)       
-      subgoal for new_arr new_diff_arr
-        apply(rule exI[where x = 
-                     "(new_diff_arr, Array' (xs[i := v])) #
-                      (diff_arr, Upd' i (xs ! i) new_diff_arr) #
-                      (remove1 (diff_arr, Array' xs) t)"
-                ]) 
-        by(sep_auto simp: update_diff_arr_rel open_master_assn_cons exI[where x = 0])
-      done
-next
-  case False
-
-  with realize_aux assms show ?thesis
-  unfolding diff_arr_rel_def
-  apply(subst update.simps)
-  apply(sep_auto heap: ref_lookup_upd eintros del: exI)
-  subgoal for new_arr new_diff_arr
-    apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) #  t"])
-    by(sep_auto simp: diff_arr_rel'_cons' exI[where x = 0] open_master_assn_cons[of new_diff_arr])
-   done
+    by auto
 qed
 
 lemma update'_aux: 
   assumes
     "i < List.length xs"
     "t \<turnstile> xs \<sim>\<^sub>n diff_arr"
+    "\<And>t xs diff_arr. <master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr)> 
+       realize_impl diff_arr
+     <\<lambda>arr. master_assn t * arr \<mapsto>\<^sub>a xs>"
   shows
     "<master_assn t> 
-       update' diff_arr i v
+       update' realize_impl diff_arr i v
      <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
        \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
          (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
@@ -396,32 +343,32 @@ proof(cases "n = 0")
       done
 next
   case False
-  with realize'_aux[of t xs n diff_arr Map.empty] assms show ?thesis
+  with assms show ?thesis
   unfolding diff_arr_rel_def
   apply(subst update'.simps)
   apply(sep_auto heap: ref_lookup_upd eintros del: exI)
   subgoal for new_arr new_diff_arr
     apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) #  t"])
-    by(sep_auto simp: 
-        map_nth diff_arr_rel'_cons' exI[where x = 0] open_master_assn_cons[of new_diff_arr]
-       )
+    by(sep_auto simp: diff_arr_rel'_cons' exI[where x = 0] open_master_assn_cons[of new_diff_arr])
    done
 qed
 
-lemma update[sep_heap_rules]: 
+lemma update [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < List.length xs)> 
      update diff_arr i v
    <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
       (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
-  by(sep_auto heap: update_aux simp: diff_arr_rel_def)
+  using realize
+  by(sep_auto heap: update'_aux simp: diff_arr_rel_def)
 
-lemma update'[sep_heap_rules]: 
+lemma update_tailrec [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < List.length xs)> 
-     update' diff_arr i v
+     update_tailrec diff_arr i v
    <\<lambda>diff_arr. \<exists>\<^sub>At'. master_assn t' * 
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
       (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
+  using realize_tailrec
   by(sep_auto heap: update'_aux simp: diff_arr_rel_def)
 
 lemma length_aux: "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> 
