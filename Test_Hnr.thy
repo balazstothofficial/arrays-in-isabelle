@@ -415,7 +415,7 @@ synth_definition if_6_diff_arr is [hnr_rule_diff_arr]:
   unfolding if_6_def 
   by hnr_diff_arr
 
-(* TODO: Why doesn't this work anymore?! *)
+(* TODO: Lists nested in tuples *)
 synth_definition if_7_diff_arr is [hnr_rule_diff_arr]: 
     "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (if_7 xs)"
   unfolding if_7_def   

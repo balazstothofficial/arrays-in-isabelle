@@ -31,14 +31,14 @@ lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i -
   apply(induction xs arbitrary: i)
   by(auto split: nat.split)
 
-lemma lookup [sep_heap_rules]: "
+lemma lookup_safe [sep_heap_rules]: "
    <arr \<mapsto>\<^sub>a xs> 
     lookup arr i
    <\<lambda>res. \<up>(res = xs ! i) * arr \<mapsto>\<^sub>a xs>"
   unfolding lookup_def
   by sep_auto
 
-lemma array_update_safe [sep_heap_rules]:
+lemma update_safe [sep_heap_rules]:
   "<arr \<mapsto>\<^sub>a xs> update i v arr <\<lambda>res. \<up>(res = arr) * arr \<mapsto>\<^sub>a xs[i := v]>"
   unfolding update_def
   by sep_auto

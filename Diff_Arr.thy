@@ -108,12 +108,12 @@ where
       cell \<leftarrow> !diff_arr;
       case cell of
         Array array   \<Rightarrow> Array.len array
-      | Upd m value r \<Rightarrow> length r
+      | Upd _ _ diff_arr \<Rightarrow> length diff_arr
   }"
 declare length.simps[code]
 
 lemma ref_lookup_upd: "\<lbrakk>t \<turnstile> xs \<sim>\<^sub>n a; 0 < n\<rbrakk> \<Longrightarrow> 
-  <master_assn t> !a <\<lambda>c. master_assn t * \<up>(\<exists>x y z. c = Upd x y z)>"
+  <master_assn t> !a <\<lambda>c. master_assn t * \<up>(\<exists>i v diff_arr. c = Upd i v diff_arr)>"
 proof(induction n)
   case 0
   then show ?case
@@ -176,8 +176,8 @@ next
 qed
 
 lemma lookup [sep_heap_rules]: 
-  "<master_assn t * \<up>(t \<turnstile> xs \<sim> a \<and> i < List.length xs)> 
-     lookup a i 
+  "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < List.length xs)> 
+     lookup diff_arr i 
    <\<lambda>r. master_assn t * \<up>(r = xs!i)>"
   unfolding diff_arr_rel_def
   using lookup_aux[of t]
@@ -312,7 +312,7 @@ next
     by auto
 qed
 
-lemma update'_aux: 
+lemma update': 
   assumes
     "i < List.length xs"
     "t \<turnstile> xs \<sim>\<^sub>n diff_arr"
@@ -328,29 +328,29 @@ lemma update'_aux:
 proof(cases "n = 0")
   case True
   with assms show ?thesis
-      unfolding diff_arr_rel_def
-      apply(simp add: update'.simps)
-      apply(hoare_triple_preI rule: master_assn_distinct)
-      apply(sep_drule r: open_master_assn)
-      apply(sep_auto eintros del: exI)       
-      subgoal for new_arr new_diff_arr
-        apply(rule exI[where x = 
-                     "(new_diff_arr, Array' (xs[i := v])) #
-                      (diff_arr, Upd' i (xs ! i) new_diff_arr) #
-                      (remove1 (diff_arr, Array' xs) t)"
-                ]) 
-        by(sep_auto simp: update_diff_arr_rel open_master_assn_cons exI[where x = 0])
-      done
+    unfolding diff_arr_rel_def
+    apply(simp add: update'.simps)
+    apply(hoare_triple_preI rule: master_assn_distinct)
+    apply(sep_drule r: open_master_assn)
+    apply(sep_auto eintros del: exI)       
+    subgoal for new_arr new_diff_arr
+      apply(rule exI[where x = 
+         "(new_diff_arr, Array' (xs[i := v])) #
+          (diff_arr, Upd' i (xs ! i) new_diff_arr) #
+          (remove1 (diff_arr, Array' xs) t)"
+            ]) 
+      by(sep_auto simp: update_diff_arr_rel open_master_assn_cons exI[where x = 0])
+    done
 next
   case False
   with assms show ?thesis
-  unfolding diff_arr_rel_def
-  apply(subst update'.simps)
-  apply(sep_auto heap: ref_lookup_upd eintros del: exI)
-  subgoal for new_arr new_diff_arr
-    apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) #  t"])
-    by(sep_auto simp: diff_arr_rel'_cons' exI[where x = 0] open_master_assn_cons[of new_diff_arr])
-   done
+    unfolding diff_arr_rel_def
+    apply(subst update'.simps)
+    apply(sep_auto heap: ref_lookup_upd eintros del: exI)
+    subgoal for _ new_diff_arr
+      apply(rule exI[where x = "(new_diff_arr, Array' (xs[i := v])) # t"])
+      by(sep_auto simp: diff_arr_rel'_cons' exI[where x = 0] open_master_assn_cons[of new_diff_arr])
+    done
 qed
 
 lemma update [sep_heap_rules]: 
@@ -360,7 +360,7 @@ lemma update [sep_heap_rules]:
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
       (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
   using realize
-  by(sep_auto heap: update'_aux simp: diff_arr_rel_def)
+  by(sep_auto heap: update' simp: diff_arr_rel_def)
 
 lemma update_tailrec [sep_heap_rules]: 
   "<master_assn t * \<up>(t \<turnstile> xs \<sim> diff_arr \<and> i < List.length xs)> 
@@ -369,7 +369,7 @@ lemma update_tailrec [sep_heap_rules]:
     \<up>((\<forall>xs' diff_arr'. t \<turnstile> xs' \<sim> diff_arr' \<longrightarrow> t' \<turnstile> xs' \<sim> diff_arr') \<and> 
       (t' \<turnstile> xs[i := v] \<sim> diff_arr))>"
   using realize_tailrec
-  by(sep_auto heap: update'_aux simp: diff_arr_rel_def)
+  by(sep_auto heap: update' simp: diff_arr_rel_def)
 
 lemma length_aux: "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> 
   <master_assn t> 
