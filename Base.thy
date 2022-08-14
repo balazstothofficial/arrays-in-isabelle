@@ -2,10 +2,6 @@ theory Base
   imports "Separation_Logic_Imperative_HOL.Sep_Main" Named_Simpsets More_Eisbach_Tools
 begin
 
-lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
-  unfolding List.nth_def
-  by(induction xs arbitrary: i)(auto split: nat.split)
-
 no_notation Ref.update ("_ := _" 62)
 notation Ref.update ("_ :=\<^sub>R _" 62)
 
@@ -30,15 +26,6 @@ lemma mod_starE:
 
 method hoare_triple_preI uses rule = rule hoare_triple_preI,
   (determ\<open>elim mod_starE rule[elim_format]\<close>)?, ((determ\<open>thin_tac "_ \<Turnstile> _"\<close>)+)?
-
-(* TODO: Probably not needed *)
-lemma htriple_return_entails: "<P> return x <Q> \<Longrightarrow> P \<Longrightarrow>\<^sub>A Q x"
-  unfolding hoare_triple_def Let_def entails_def
-  using effect_returnI effect_run by fastforce
-
-(* TODO: Probably not needed *)
-lemma lookup_fwd: "<A> !a <\<lambda>c. A>"
-  by (smt (verit, del_insts) deconstruct_rules(4) effect_returnI effect_run hoare_triple_def new_addr_refl run_lookup the_state.simps)
 
 method sep_drule uses r =
   rule ent_frame_fwd[OF r] htriple_frame_fwd[OF r], (assumption+)?, frame_inference

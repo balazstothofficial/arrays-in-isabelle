@@ -29,6 +29,10 @@ qualified definition update_tailrec where
     else return arr
   }"
 
+lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
+  unfolding List.nth_def
+  by(induction xs arbitrary: i)(auto split: nat.split)
+
 lemma lookup_safe [sep_heap_rules]: "
   <master_assn t * \<up>(t \<turnstile> xs \<sim> a)> 
      lookup a i 
