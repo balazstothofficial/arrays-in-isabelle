@@ -22,8 +22,9 @@ declare member.simps[simp del]
 abbreviation member' where
   "member' a xs \<equiv> member a xs (length xs)"
 
+(* TODO: Automatic conversion from recursion to fixpoint operator *)
 definition member_opt where
-  "member_opt a xs \<equiv> option.fixp_fun (\<lambda> member_opt n. 
+  "member_opt a xs \<equiv> option.fixp_fun (\<lambda>member_opt n. 
     case n of 
       0     \<Rightarrow> Some False 
     | Suc n \<Rightarrow> do {
@@ -45,7 +46,7 @@ find_theorems "option.fixp_fun"
 lemma member_opt_termination: "member_opt a xs n = Some (member a xs n)"
   apply(induction a xs n rule: member.induct)
   apply(simp(no_asm) add: member.simps member_opt_unfold)
-  by(auto split: nat.splits)
+  by(simp split: nat.split)
  
 definition member_body where
   "member_body r a xs n =  (
@@ -112,27 +113,17 @@ begin
 synth_definition member_impl is [hnr_rule_diff_arr]:
   "hnr (master_assn' (insert (xs, xsi) F) * id_assn n ni) (\<hole>:: ?'a Heap) ?\<Gamma>' (member_opt x xs n)"
   unfolding member_opt_def
-  (* Could this problem partly be solved by the rule that the terminating branches always appear
+  (* TODO: Could this problem partly be solved by the rule that the terminating branches always appear
      first? *)
-  supply r = hnr_recursion[where 
+  apply(rule hnr_recursion[where 
       \<Gamma> = "(\<lambda>n ni. master_assn' (insert (xs, xsi) F) * id_assn n ni)" and
-      \<Gamma>' = "(\<lambda>n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)"] 
-  apply(rule r)
+      \<Gamma>' = "(\<lambda>n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)"])
   apply partial_function_mono
   apply hnr_diff_arr
-  apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
-  apply(hypsubst)
-  apply(rule refl)
-  apply hnr_diff_arr
+  (* TODO: What's that? *)
   apply(rule hnr_frame)
   apply assumption
-  apply(frame_inference_2 \<open>rule ent_refl\<close>)
-  apply hnr_diff_arr
-  apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
-  apply(hypsubst)
-  apply(rule refl)
+  apply(hnr_frame_inference \<open>rule ent_refl\<close>)
   apply hnr_diff_arr
   apply partial_function_mono
   done

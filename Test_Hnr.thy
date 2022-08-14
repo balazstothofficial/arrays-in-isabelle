@@ -313,12 +313,7 @@ synth_definition nested_arr is
 synth_definition fallback_1_arr is [hnr_rule_arr]:
     "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (fallback_1 xs)"
   unfolding fallback_1_def 
-  apply hnr_arr
-  apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
-  apply(hypsubst)
-  apply(rule refl)
-  by hnr_arr                    
+  by hnr_arr
 
 (* TODO: Find way to deal with fallback of non id_assn stuff *)
 synth_definition fallback_2_arr is [hnr_rule_arr]:
@@ -327,7 +322,7 @@ synth_definition fallback_2_arr is [hnr_rule_arr]:
   apply hnr_arr
   apply(rule hnr_fallback)
   oops
-
+ 
 synth_definition create_list_arr is [hnr_rule_arr]:
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_list x)"
   unfolding create_list_def 
@@ -435,11 +430,6 @@ synth_definition nested_diff_arr is [hnr_rule_diff_arr]:
 synth_definition fallback_1_diff_arr is [hnr_rule_diff_arr]:
     "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (fallback_1 xs)"
   unfolding fallback_1_def 
-  apply hnr_diff_arr
-  apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
-  apply(hypsubst)
-  apply(rule refl)
   by hnr_diff_arr
 
 synth_definition create_list_diff_arr is [hnr_rule_diff_arr]: 

@@ -26,11 +26,6 @@ qualified definition update where
     else return arr
   }"
 
-lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i - length xs)"
-  unfolding List.nth_def
-  apply(induction xs arbitrary: i)
-  by(auto split: nat.split)
-
 lemma lookup_safe [sep_heap_rules]: "
    <arr \<mapsto>\<^sub>a xs> 
     lookup arr i

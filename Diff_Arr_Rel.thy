@@ -2,7 +2,8 @@ theory Diff_Arr_Rel
   imports Cell
 begin
 
-fun diff_arr_rel' where
+(* TODO: Is precedence okay? + How to make subscript not just single char? *)
+fun diff_arr_rel' ("(_ \<turnstile> _ \<sim>\<^sub>_ _)" [51, 51, 51, 51] 50)  where
   "diff_arr_rel' t xs 0 a \<longleftrightarrow> (a, Array' xs) \<in>\<^sub>L t"
 | "diff_arr_rel' t xs (Suc n) a \<longleftrightarrow> (\<exists>i x a' xs'. 
       (a, Upd' i x a') \<in>\<^sub>L t
@@ -11,14 +12,9 @@ fun diff_arr_rel' where
     \<and> i < length xs'
 )"
 
-(* TODO: Is precedence okay? + How to make subscript not just single char? *)
-notation diff_arr_rel' ("(_ \<turnstile> _ \<sim>\<^sub>_ _)" [51, 51, 51, 51] 50) 
-  
-definition diff_arr_rel where
-  "diff_arr_rel t xs a \<equiv> \<exists>n. t \<turnstile> xs \<sim>\<^sub>n a"
-
 (* TODO: Is precedence okay? *)
-notation diff_arr_rel ("(_ \<turnstile> _ \<sim> _)" [51, 51, 51] 50) 
+definition diff_arr_rel ("(_ \<turnstile> _ \<sim> _)" [51, 51, 51] 50) where 
+  "diff_arr_rel t xs a \<equiv> \<exists>n. t \<turnstile> xs \<sim>\<^sub>n a"
 
 lemma diff_arr_rel'_cons: "t \<turnstile> xs \<sim>\<^sub>n diff_arr \<Longrightarrow> x # t \<turnstile> xs \<sim>\<^sub>n diff_arr"
 proof(induction t xs n diff_arr rule: diff_arr_rel'.induct)

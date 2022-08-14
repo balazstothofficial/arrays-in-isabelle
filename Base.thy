@@ -9,10 +9,8 @@ lemma nth_undefined: "i \<ge> length xs \<Longrightarrow> xs ! i = undefined(i -
 no_notation Ref.update ("_ := _" 62)
 notation Ref.update ("_ :=\<^sub>R _" 62)
 
-abbreviation contains where
+abbreviation contains ("(_/ \<in>\<^sub>L _)" [51, 51] 50) where
   "contains x xs \<equiv> x \<in> set xs"
-
-notation contains ("(_/ \<in>\<^sub>L _)" [51, 51] 50)
 
 lemma ent_iff:"A = B \<longleftrightarrow> (B \<Longrightarrow>\<^sub>A A) \<and> (A \<Longrightarrow>\<^sub>A B)"
   using ent_iffI by auto
@@ -25,17 +23,10 @@ lemma htriple_frame_fwd:
   using assms
   by (metis cons_rule ent_refl fr_refl)
 
-lemma hoare_triple_preI': 
-  "\<lbrakk>\<And>h. h \<Turnstile> P \<Longrightarrow> P1; P1 \<Longrightarrow> <P> c <Q>\<rbrakk> \<Longrightarrow> <P> c <Q>"
-  using hoare_triple_preI[of P c Q]
-  by auto
-
 lemma mod_starE:
   assumes "h \<Turnstile> P1 * P2"
   obtains h1 h2 where "h1 \<Turnstile> P1" "h2 \<Turnstile> P2"
   using assms mod_starD by blast
-
-method hoare_triple_preI_old uses rule = rule hoare_triple_preI'[OF rule], assumption+
 
 method hoare_triple_preI uses rule = rule hoare_triple_preI,
   (determ\<open>elim mod_starE rule[elim_format]\<close>)?, ((determ\<open>thin_tac "_ \<Turnstile> _"\<close>)+)?
@@ -49,7 +40,7 @@ lemma htriple_return_entails: "<P> return x <Q> \<Longrightarrow> P \<Longrighta
 lemma lookup_fwd: "<A> !a <\<lambda>c. A>"
   by (smt (verit, del_insts) deconstruct_rules(4) effect_returnI effect_run hoare_triple_def new_addr_refl run_lookup the_state.simps)
 
-method sep_drule uses r = 
+method sep_drule uses r =
   rule ent_frame_fwd[OF r] htriple_frame_fwd[OF r], (assumption+)?, frame_inference
 
 end
