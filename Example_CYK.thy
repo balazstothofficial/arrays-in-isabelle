@@ -48,7 +48,7 @@ lemma member_opt_termination: "member_opt a xs n = Some (member a xs n)"
   apply(simp(no_asm) add: member.simps member_opt_unfold)
   by(simp split: nat.split)
  
-definition member_body where
+(* definition member_body where
   "member_body r a xs n =  (
     case n of
       0    \<Rightarrow> False
@@ -58,6 +58,7 @@ definition member_body where
 lemma member_body: "member a xs = member_body (member a xs) a xs"
   unfolding member_body_def fun_eq_iff Let_def
   by(auto simp: member.simps)
+*)
 
 fun match_prods_original :: "('n, 't) CNG \<Rightarrow> 'n list \<Rightarrow> 'n list \<Rightarrow> 'n list" where 
   "match_prods_original [] ls rs = []" 

@@ -13,9 +13,7 @@ lemma hnr_copy_diff_arr [hnr_rule_diff_arr]:
       (return xsi) 
       (\<lambda>xs' xsi'. master_assn' (insert (xs', xsi') S)) 
       (Some xs)"
-  apply(rule hnrI)
-  unfolding master_assn'_def
-  by sep_auto
+  using hnr_pass_general.
 
 definition Diff_Arr_From_Arr where
   "Diff_Arr_From_Arr a = a"
@@ -44,7 +42,7 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
   unfolding master_assn'_def New_Diff_Arr_def
   by(sep_auto simp: Let_def)
 
-lemma hnr_lookup[hnr_rule_diff_arr]: "
+lemma hnr_lookup [hnr_rule_diff_arr]: "
   hnr
     (master_assn' (insert (xs, xsi) S) * id_assn i ii) 
     (Diff_Arr_Safe.lookup xsi ii)
@@ -91,6 +89,19 @@ lemma hnr_update[hnr_rule_diff_arr]: "
     apply(rule fi_rule[OF update_safe[of t xs]])
     by sep_auto+
   done
+
+lemma hnr_length [hnr_rule_diff_arr]: "
+  hnr
+    (master_assn' (insert (xs, xsi) S))
+    (Diff_Arr.length xsi)
+    (\<lambda>r ri. master_assn' S * id_assn r ri)
+    (Some (length xs))"
+  unfolding id_rel_def master_assn'_def
+  apply(rule hnrI)
+  apply sep_auto
+  apply(rule cons_post_rule)
+  apply(rule fi_rule[OF length])
+  by sep_auto+
 
 lemma transfer_diff_arr_rel:
   assumes 
@@ -232,8 +243,10 @@ schematic_goal
 
 end
   
-method hnr_diff_arr = hnr hnr_diff_arr_match_atom diff_arr_kdm rule_set: hnr_rule_diff_arr
+method hnr_diff_arr = 
+  hnr hnr_diff_arr_match_atom diff_arr_kdm rule_set: hnr_rule_diff_arr
 
-method hnr_step_diff_arr = hnr_step hnr_diff_arr_match_atom diff_arr_kdm rule_set: hnr_rule_diff_arr
+method hnr_step_diff_arr = 
+  hnr_step hnr_diff_arr_match_atom diff_arr_kdm rule_set: hnr_rule_diff_arr
 
 end

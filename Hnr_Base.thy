@@ -32,11 +32,11 @@ lemma hnr_const: "hnr \<Gamma> (return x) (\<lambda>r ri. \<Gamma> * id_assn r r
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_pass: "hnr (\<Gamma> x xi) (return xi) \<Gamma> (Some x)"
+lemma hnr_pass_general: "hnr (\<Gamma> x xi) (return xi) \<Gamma> (Some x)"
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_copy: "hnr (id_assn x xi) (return xi) id_assn (Some x)"
-  using hnr_pass.
+lemma hnr_pass: "hnr (id_assn x xi) (return xi) id_assn (Some x)"
+  using hnr_pass_general.
 
 end

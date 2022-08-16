@@ -3,9 +3,9 @@ theory Merge
 begin
 
 definition Merge where
-  "Merge a b c \<equiv> a \<or>\<^sub>A b \<Longrightarrow>\<^sub>A c"
+  "Merge \<Gamma>\<^sub>a \<Gamma>\<^sub>b \<Gamma>\<^sub>c \<equiv> \<Gamma>\<^sub>a \<or>\<^sub>A \<Gamma>\<^sub>b \<Longrightarrow>\<^sub>A \<Gamma>\<^sub>c"
 
-lemma merge_refl: "Merge a a a"
+lemma merge_refl: "Merge \<Gamma> \<Gamma> \<Gamma>"
   unfolding Merge_def
   by simp
 

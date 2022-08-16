@@ -20,14 +20,14 @@ lemma hnr_tuple [hnr_rule]:
   by sep_auto
 
 method hnr_rule methods frame_match_atom uses rule_set = 
-  (rule rule_set[framed] hnr_copy[framed], hnr_frame_inference frame_match_atom) 
+  (rule rule_set[framed] hnr_pass[framed], hnr_frame_inference frame_match_atom) 
   | rule hnr_rule hnr_const
 
 method hnr_step methods frame_match_atom keep_atom uses rule_set =
-   (simp only: let_to_bind)?,
-   (hnr_rule frame_match_atom rule_set: rule_set) 
+     simp only: let_to_bind
+   | hnr_rule frame_match_atom rule_set: rule_set
    | keep_drop keep_atom 
-   | keep_drop_simp 
+   | normalize 
    | merge
    | hnr_fallback
 

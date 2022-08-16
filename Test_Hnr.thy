@@ -2,16 +2,31 @@ theory Test_Hnr
   imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" Definition_Utils
 begin
 
+definition example_1 where
+  "example_1 xs = do {
+    let len = List.length xs;
+    let b = len < 2;
+    if b then do {
+      let i = 1;
+      let xs' = xs[i := i];
+      Some xs'
+    } else do { 
+      let i = 2;
+      let xs' = xs[i := i];
+      Some xs'
+    }
+  }"
+
 definition sequential_1 where
   "sequential_1 xs = 
-    (do { 
+    do { 
          c1 \<leftarrow> (do {  x \<leftarrow> Some 1; Some x }); 
          c2 \<leftarrow>  Some 2; 
          c3 \<leftarrow>  Some 3; 
          t1 \<leftarrow>  Some (xs[c1 := c2]); 
          t2 \<leftarrow>  Some (t1[c1 := c3]);
          t3 \<leftarrow>  Some (t2 ! c2) ;
-      Some t3 } )"
+      Some t3 }"
 
 definition sequential_2 where
   "sequential_2 xs = 
@@ -220,6 +235,11 @@ definition nested_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" wher
 
 (* HNR Array *)
 
+synth_definition example_1_arr is [hnr_rule_arr]:     
+  "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (example_1 xs)"
+  unfolding example_1_def 
+  by hnr_arr
+
 synth_definition sequential_1_arr is [hnr_rule_arr]: 
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (sequential_1 xs)"
   unfolding sequential_1_def 
@@ -344,6 +364,11 @@ synth_definition create_arr_3_impl is [hnr_rule_arr]:
   by hnr_arr
 
 (* HNR Diff-Array *)
+
+synth_definition example_1_diff_arr is [hnr_rule_diff_arr]: 
+  "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (example_1 xs)"
+  unfolding example_1_def
+  by hnr_diff_arr
 
 synth_definition sequential_1_diff_arr is [hnr_rule_diff_arr]:
   "hnr (master_assn' (insert (xs, xsi) F)) (\<hole> :: ?'a Heap) ?\<Gamma>' (sequential_1 xs)"
@@ -479,6 +504,6 @@ synth_definition nested_arr_diff_arr_impl is [hnr_rule_diff_arr]:
   apply hnr_arr
   oops
 
-export_code if_6_diff_arr in SML_imp module_name if_6
+export_code example_1_diff_arr in SML_imp module_name example
 
 end
