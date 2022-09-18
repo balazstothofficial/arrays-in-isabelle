@@ -9,6 +9,7 @@ lemma merge_refl: "Merge \<Gamma> \<Gamma> \<Gamma>"
   unfolding Merge_def
   by simp
 
+(* TODO: Require `normalize` before each merge, then this won't be necessary anymore *)
 method merge = (simp only: star_aci)?, rule merge_refl
 
 end

@@ -7,26 +7,31 @@ lemma hnr_frame:
     "hnr \<Gamma> fi \<Gamma>' f"
     "\<Gamma>\<^sub>P \<Longrightarrow>\<^sub>A \<Gamma> * F"
   shows
-    "hnr \<Gamma>\<^sub>P fi (\<lambda> r ri. \<Gamma>' r ri * F) f"
+    "hnr \<Gamma>\<^sub>P fi (\<lambda>r ri. \<Gamma>' r ri * F) f"
   apply(rule hnrI)
+  using hnrD[OF assms(1)] assms(2) fi_rule
   apply(cases f)
-   apply force
-  apply simp
-  using hnrD[OF assms(1)]
-  apply simp
-  by (smt (verit) assms(2) assn_aci(10) fi_rule hnrD hoare_triple_def)
-
+  apply sep_auto+
+  by fastforce
+ 
 attribute_setup framed =
     \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [thm, asm_rl]))\<close>
     \<open>Add frame to hnr rule\<close>
 
-lemma prepare_frame_1:
+lemma frame_prepare:
   assumes
     "emp * P * emp \<Longrightarrow>\<^sub>A emp * Q * F"
   shows
     "P \<Longrightarrow>\<^sub>A Q * F"
   using assms
   by sep_auto
+
+lemma split_id_assn: "id_assn p pi = id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi)"
+  by(cases p)(auto simp: id_rel_def)
+
+method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn] split_id_assn)?
+
+method frame_prepare = rule frame_prepare, frame_norm_assoc
 
 lemma frame_no_match: 
   assumes
@@ -63,13 +68,6 @@ lemma frame_match_emp:
 
 lemma frame_done: "F * emp \<Longrightarrow>\<^sub>A emp * F" 
   by sep_auto
-
-lemma split_id_assn: "id_assn p pi = id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi)"
-  by(cases p)(auto simp: id_rel_def)
-
-method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn] split_id_assn)?
-
-method frame_prepare = rule prepare_frame_1, frame_norm_assoc
 
 method frame_try_match methods match_atom = then_else 
   \<open>rule frame_match_pure | rule frame_match, (match_atom; fail) | rule frame_match_emp\<close> 
@@ -113,6 +111,10 @@ schematic_goal
 
 schematic_goal 
   shows "id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi) \<Longrightarrow>\<^sub>A id_assn p pi * ?F"
+  by(hnr_frame_inference \<open>rule ent_refl\<close>)
+
+schematic_goal 
+  shows "id_assn p pi * a \<Longrightarrow>\<^sub>A id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi) * ?F"
   by(hnr_frame_inference \<open>rule ent_refl\<close>)
 
 end

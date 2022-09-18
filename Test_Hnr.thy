@@ -25,7 +25,7 @@ definition sequential_1 where
          c3 \<leftarrow>  Some 3; 
          t1 \<leftarrow>  Some (xs[c1 := c2]); 
          t2 \<leftarrow>  Some (t1[c1 := c3]);
-         t3 \<leftarrow>  Some (t2 ! c2) ;
+         t3 \<leftarrow>  Some (t2 ! c2);
       Some t3 }"
 
 definition sequential_2 where
@@ -40,8 +40,8 @@ definition sequential_2 where
 definition return_tuple_1 where
   "return_tuple_1 xs = 
     do { 
-        let c1 = 1; 
         let c2 = 2; 
+        let c1 = c2; 
         Some (c1, c2)
     }"
 
@@ -50,7 +50,7 @@ definition return_tuple_2 where
     do {
       let c1 = 1; 
       let t1 = xs[c1 := c1];
-      Some (c1, t1)
+      Some (t1, c1)
     }"
 
 definition return_tuple_3 where
@@ -160,12 +160,17 @@ definition if_7 where
 definition tuple_list where
   "tuple_list xs = do { 
     let c1 = 1; 
-    let c2 = (c1, c1); let t1 = xs[c1 := c2]; 
+    let c2 = (c1, c1); 
+    let t1 = xs[c1 := c2]; 
     Some t1 
   }"
 
 definition nested where
-  "nested xs = do { let c1 = 1; let t1 = xs[c1 := c1]; sequential_1 t1 }"
+  "nested xs = do { 
+    let c1 = 1; 
+    let t1 = xs[c1 := c1]; 
+    sequential_1 t1 
+  }"
 
 definition fallback_1 where
   "fallback_1 xs = do { 
@@ -235,6 +240,15 @@ definition nested_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" wher
 
 (* HNR Array *)
 
+(* method hnr_fallback = 
+  rule hnr_fallback,
+  extract_pre rule: models_id_assn,
+  hypsubst,
+  rule refl *)
+
+find_consts nat
+
+
 synth_definition example_1_arr is [hnr_rule_arr]:     
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (example_1 xs)"
   unfolding example_1_def 
@@ -260,24 +274,22 @@ synth_definition return_tuple_2_arr is [hnr_rule_arr]:
   unfolding return_tuple_2_def
   by hnr_arr
 
-(* Can't work, not linear! *)
+(* Not all lists are converted to arrays, because they are not used linearly! *)
 synth_definition return_tuple_3_arr is [hnr_rule_arr]: 
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (return_tuple_3 xs)"
   unfolding return_tuple_3_def 
-  apply hnr_arr
-  oops  
+  by hnr_arr
 
 synth_definition return_tuple_4_arr is [hnr_rule_arr]: 
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (return_tuple_4 xs)"
   unfolding return_tuple_4_def
   by hnr_arr
 
-(* Can't work, not linear! *)
+(* Not all lists are converted to arrays, because they are not used linearly! *)
 synth_definition not_linear_arr is
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (not_linear xs)"
   unfolding not_linear_def 
-  apply hnr_arr
-  oops 
+  by hnr_arr
 
 synth_definition if_1_arr is [hnr_rule_arr]:
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (if_1 xs)"
@@ -306,12 +318,11 @@ synth_definition if_5_arr is [hnr_rule_arr]:
   unfolding if_5_def 
   by hnr_arr
 
-(* Can't work, not linear! *)
+(* Not all lists are converted to arrays, because they are not used linearly! *)
 synth_definition if_6_arr is 
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (if_6 xs)"
   unfolding if_6_def 
-  apply hnr_arr
-  oops
+  by hnr_arr
 
 (* Can't work, not linear! *)
 synth_definition if_7_arr is

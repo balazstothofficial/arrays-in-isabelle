@@ -1,5 +1,5 @@
 theory Example_CYK
-  imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" Definition_Utils
+  imports Hnr_Diff_Arr "HOL-Library.Code_Target_Nat" Definition_Utils
 begin
 
 (* TODO: Verify with original implementation from CYK.thy *)
@@ -116,18 +116,10 @@ synth_definition member_impl is [hnr_rule_diff_arr]:
   unfolding member_opt_def
   (* TODO: Could this problem partly be solved by the rule that the terminating branches always appear
      first? *)
-  apply(rule hnr_recursion[where 
+  apply(rule hnr_recursion[where
       \<Gamma> = "(\<lambda>n ni. master_assn' (insert (xs, xsi) F) * id_assn n ni)" and
       \<Gamma>' = "(\<lambda>n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)"])
-  apply partial_function_mono
-  apply hnr_diff_arr
-  (* TODO: What's that? *)
-  apply(rule hnr_frame)
-  apply assumption
-  apply(hnr_frame_inference \<open>rule ent_refl\<close>)
-  apply hnr_diff_arr
-  apply partial_function_mono
-  done
+  by hnr_diff_arr
 
 end
 

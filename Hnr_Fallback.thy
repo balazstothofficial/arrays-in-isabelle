@@ -6,7 +6,7 @@ lemma hnr_fallback:
   assumes
     "\<And>h. h \<Turnstile> \<Gamma> \<Longrightarrow> c = ci"
   shows
-    "hnr \<Gamma> (return ci) (\<lambda> r ri. \<Gamma> * id_assn r ri) (Some c)"
+    "hnr \<Gamma> (return ci) (\<lambda>r ri. \<Gamma> * id_assn r ri) (Some c)"
   apply(rule hnrI)
   apply(rule hoare_triple_preI)
   using assms 

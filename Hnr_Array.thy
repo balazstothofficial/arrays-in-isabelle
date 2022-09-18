@@ -4,11 +4,11 @@ begin
 
 named_theorems hnr_rule_arr
 
-lemma hnr_new [hnr_rule_arr]: 
+lemma hnr_new: 
   "hnr 
     (id_assn n ni * id_assn x xi) 
-    (Array.new ni xi) 
-    (\<lambda>xs xsi. array_assn xs xsi * id_assn n ni * id_assn x xi) 
+    (Array.new ni xi)
+    (\<lambda>xs xsi. array_assn xs xsi * id_assn n ni * id_assn x xi)
     (Some (replicate n x))"
   unfolding id_rel_def
   apply(rule hnrI)
@@ -17,7 +17,7 @@ lemma hnr_new [hnr_rule_arr]:
 definition New_Arr :: "'a list \<Rightarrow> 'a list" where
   "New_Arr xs = xs"
 
-lemma hnr_of_list [hnr_rule_arr]: 
+lemma hnr_of_list [hnr_rule_arr]:
   "hnr 
     emp
     (Array.of_list xs) 
@@ -27,8 +27,8 @@ lemma hnr_of_list [hnr_rule_arr]:
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_lookup [hnr_rule_arr]: "
-    hnr
+lemma hnr_lookup [hnr_rule_arr]:
+   "hnr
      (xsi \<mapsto>\<^sub>a xs * id_assn i ii)
      (Array_Safe.lookup xsi ii) 
      (\<lambda>r ri. array_assn xs xsi * id_assn r ri) 
@@ -37,8 +37,8 @@ lemma hnr_lookup [hnr_rule_arr]: "
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_update [hnr_rule_arr]: "
-    hnr 
+lemma hnr_update [hnr_rule_arr]: 
+   "hnr 
       (array_assn xs xsi * id_assn i ii * id_assn v vi) 
       (Array_Safe.update ii vi xsi) 
       array_assn
@@ -47,8 +47,8 @@ lemma hnr_update [hnr_rule_arr]: "
   apply(rule hnrI)
   by sep_auto
 
-lemma hnr_length [hnr_rule_arr]: "
-    hnr 
+lemma hnr_length [hnr_rule_arr]:
+   "hnr 
       (array_assn xs xsi) 
       (Array.len xsi) 
       (\<lambda>r ri. array_assn xs xsi * id_assn r ri)

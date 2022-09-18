@@ -1,12 +1,20 @@
-theory Hnr_Case_Rules
+theory Hnr_Rules
   imports Hnr_Base Keep_Drop Norm Merge
 begin
 
-(* TODO:
-  - Is it possible to generalize that it works with every case distinction?
-  - Find a way to make case distinctions also work if they are on a refined type/ a type that
-    contains a refined type
-*)
+lemma hnr_tuple [hnr_rule]: 
+  assumes
+    "hnr \<Gamma> ai \<Gamma>\<^sub>a (Some a)"
+    "\<And>a ai. hnr (\<Gamma>\<^sub>a a ai * true) bi (\<Gamma>\<^sub>b a ai) (Some b)"
+  shows 
+    "hnr 
+      \<Gamma>
+      (do { ai' \<leftarrow> ai; bi' \<leftarrow> bi; return (ai', bi') })
+      (\<lambda>x xi. \<Gamma>\<^sub>b (fst x) (fst xi) (snd x) (snd xi))
+      (Some (a, b))"
+  apply(rule hnrI)
+  using assms[THEN hnrD]
+  by sep_auto
 
 lemma hnr_bind [hnr_rule]:
   assumes 
@@ -18,7 +26,7 @@ lemma hnr_bind [hnr_rule]:
     "hnr \<Gamma> (do { x \<leftarrow> vi; fi x }) \<Gamma>''' (do { x \<leftarrow> v; f x })"
   supply[sep_heap_rules] = assms(1, 2)[THEN hnrD]
   apply(rule hnrI)
-  apply(sep_auto split: option.splits Option.bind_splits)
+  apply(sep_auto split: option.splits Option.bind_splits(2))
   apply(sep_drule r: assms(3)[unfolded Keep_Drop_def])
   apply(sep_drule r: assms(4)[unfolded Norm_def])
   by sep_auto
@@ -39,6 +47,12 @@ lemma hnr_if [hnr_rule]:
   unfolding Merge_def
   apply(sep_auto simp: ent_star_mono id_rel_def split: if_splits)
   by(meson cons_post_rule ent_disjI1 ent_disjI2 fr_refl)+
+
+(* TODO:
+  - Is it possible to generalize that it works with every case distinction?
+  - Find a way to make case distinctions also work if they are on a refined type/ a type that
+    contains a refined type
+*)
 
 (* TODO: 
   Just temporary solution to at least avoid code duplication
@@ -107,9 +121,11 @@ lemma hnr_case_sum [hnr_rule]:
 lemma hnr_case_nat[hnr_rule]:
   assumes 
     "hnr (\<Gamma> * id_assn n ni) ci0 \<Gamma>\<^sub>a c0"
+
     "\<And>n' ni'. hnr (\<Gamma> * id_assn n ni * id_assn n' ni') (ci ni') (\<Gamma>\<^sub>b n' ni') (c n')"
     "\<And>n ni ri r. Keep_Drop (\<Gamma>\<^sub>b n ni r ri) (\<Gamma>\<^sub>b' r ri) (Drop n ni r ri)"
     "\<And>r ri. Norm (\<Gamma>\<^sub>b' r ri) (\<Gamma>\<^sub>b'' r ri)" 
+
     "\<And>r ri. Merge (\<Gamma>\<^sub>a r ri) (\<Gamma>\<^sub>b'' r ri) (\<Gamma>\<^sub>c r ri)"
   shows
     "hnr 
@@ -130,6 +146,7 @@ lemma hnr_case_nat[hnr_rule]:
 lemma hnr_case_list [hnr_rule]:
   assumes 
     "hnr (\<Gamma> * id_assn xs xsi) ci0 \<Gamma>\<^sub>a c0"
+
     "\<And>x' xi' xs' xsi'. 
       hnr 
         (\<Gamma> * id_assn xs xsi * id_assn x' xi' * id_assn xs' xsi') 
@@ -138,6 +155,7 @@ lemma hnr_case_list [hnr_rule]:
         (c x' xs')"
     "\<And>x xi xs xsi ri r. Keep_Drop (\<Gamma>\<^sub>b x xi xs xsi r ri) (\<Gamma>\<^sub>b' r ri) (Drop x xi xs xsi r ri)"
     "\<And>r ri. Norm (\<Gamma>\<^sub>b' r ri) (\<Gamma>\<^sub>b'' r ri)"
+
     "\<And>r ri. Merge (\<Gamma>\<^sub>a r ri) (\<Gamma>\<^sub>b'' r ri) (\<Gamma>\<^sub>c r ri)"
   shows
     "hnr 

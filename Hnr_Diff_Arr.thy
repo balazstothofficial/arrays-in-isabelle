@@ -36,8 +36,7 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
     emp
     (Diff_Arr.from_list xs)
     (\<lambda>xs xsi. master_assn' { (xs, xsi) })
-    (Some (New_Diff_Arr xs))
-  "
+    (Some (New_Diff_Arr xs))"
   apply(rule hnrI)
   unfolding master_assn'_def New_Diff_Arr_def
   by(sep_auto simp: Let_def)
@@ -50,13 +49,10 @@ lemma hnr_lookup [hnr_rule_diff_arr]: "
     (Some (xs ! i))"
   unfolding id_rel_def master_assn'_def
   apply(rule hnrI)
-  apply sep_auto
-  subgoal for t
-    apply(subgoal_tac "t \<turnstile> xs  \<sim> xsi")
-     apply(rule cons_post_rule)
-      apply(rule fi_rule[OF lookup_safe[of t xs]])
-    by sep_auto+
-  done
+  apply(sep_auto)
+  apply(rule cons_post_rule)
+  apply(rule fi_rule[OF lookup_safe[of _ xs]])
+  by sep_auto+
 
 lemma hnr_realize: "
   hnr
@@ -66,13 +62,10 @@ lemma hnr_realize: "
     (Some xs)"
   unfolding id_rel_def master_assn'_def
   apply(rule hnrI)
-  apply sep_auto
-  subgoal for t
-    apply(subgoal_tac "t \<turnstile> xs  \<sim> xsi")
-    apply(rule cons_post_rule)
-    apply(rule fi_rule[OF realize[of t xs]])
-    by sep_auto+
-  done
+  apply(sep_auto)
+  apply(rule cons_post_rule)
+  apply(rule fi_rule[OF realize[of _ xs]])
+  by sep_auto+
 
 lemma hnr_update[hnr_rule_diff_arr]: "
   hnr
@@ -83,12 +76,9 @@ lemma hnr_update[hnr_rule_diff_arr]: "
   unfolding id_rel_def master_assn'_def
   apply(rule hnrI)
   apply(sep_auto)
-  subgoal for t
-    apply(subgoal_tac "t \<turnstile> xs  \<sim> xsi")
-    apply(rule cons_post_rule)
-    apply(rule fi_rule[OF update_safe[of t xs]])
-    by sep_auto+
-  done
+  apply(rule cons_post_rule)
+  apply(rule fi_rule[OF update_safe[of _ xs]])
+  by sep_auto+
 
 lemma hnr_length [hnr_rule_diff_arr]: "
   hnr

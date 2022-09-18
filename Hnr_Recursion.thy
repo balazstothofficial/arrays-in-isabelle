@@ -49,20 +49,21 @@ next
   case 2
   then show ?case 
     using mono_option 
-    by(auto simp: monotone_def fun_ord_def)
+    by(simp add: monotone_def fun_ord_def)
 next
   case 3
   then show ?case 
-    by auto
+    by simp
 next
   case 4
   then show ?case 
     apply(subst heap.mono_body_fixp[OF mono_heap])
-    apply(rule step)
-    by simp
+    apply(rule step).
 qed
 
-method_setup partial_function_mono = 
+method_setup partial_function_mono_setup = 
   \<open>Scan.succeed (SIMPLE_METHOD' o Partial_Function.mono_tac)\<close>
+
+method partial_function_mono = partial_function_mono_setup; fail
 
 end
