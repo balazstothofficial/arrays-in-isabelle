@@ -52,6 +52,7 @@ lemma hnr_if [hnr_rule]:
   - Is it possible to generalize that it works with every case distinction?
   - Find a way to make case distinctions also work if they are on a refined type/ a type that
     contains a refined type
+  - Remove the explicit frames from the preconditions!
 *)
 
 (* TODO: 
@@ -84,6 +85,23 @@ lemma hnr_case_tuple [hnr_rule]:
     "\<And>r ri. Norm (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)"
   shows
     "hnr (\<Gamma> * id_assn x xi) (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>\<^sub>a'' (case x of (a, b) \<Rightarrow> c a b)"
+  apply(hnr_cases_prepare splits: prod.splits)
+  using assms(2, 3)
+  apply -
+  by(hnr_cases_solve_case case_hnr: assms(1) ent_disjI: ent_disjI1)
+
+lemma hnr_case_tuple_2 [hnr_rule]:
+  assumes 
+    "\<And>a ai b bi. 
+      hnr 
+        (\<Gamma> * id_assn x xi * id_assn a ai * id_assn b bi) 
+        (ci ai bi)
+        (\<Gamma>\<^sub>a a ai b bi)
+        (c a b)"
+    "\<And>a ai b bi ri r. Keep_Drop (\<Gamma>\<^sub>a a ai b bi r ri) (\<Gamma>\<^sub>a' r ri) (\<Gamma>Drop a ai b bi r ri)"
+    "\<And>r ri. Norm (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)"
+  shows
+    "hnr (id_assn x xi * \<Gamma>) (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>\<^sub>a'' (case x of (a, b) \<Rightarrow> c a b)"
   apply(hnr_cases_prepare splits: prod.splits)
   using assms(2, 3)
   apply -

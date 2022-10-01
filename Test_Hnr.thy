@@ -4,16 +4,17 @@ begin
 
 definition example_1 where
   "example_1 xs = do {
-    let len = List.length xs;
-    let b = len < 2;
-    if b then do {
-      let i = 1;
-      let xs' = xs[i := i];
-      Some xs'
+    let c1 = List.length xs;
+    let c2 = 2;
+    let c3 = c1 < c2;
+    if c3 then do {
+      let c4 = 1;
+      let c5 = xs[c4 := c4];
+      Some c5
     } else do { 
-      let i = 2;
-      let xs' = xs[i := i];
-      Some xs'
+      let c6 = 2;
+      let c7 = xs[c6 := c6];
+      Some c7
     }
   }"
 
@@ -230,7 +231,7 @@ definition create_diff_arr_4 :: "('a::heap) \<Rightarrow> ('b::heap) \<Rightarro
 
 definition create_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" where
   "create_arr_diff_arr xs = do { 
-    let a = New_Arr [xs]; let b = Diff_Arr_From_Arr a; Some b 
+    let a = New_Arr [xs]; let b = New_Diff_Arr a; Some b 
   }" 
 
 definition nested_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" where
@@ -238,16 +239,14 @@ definition nested_arr_diff_arr :: "('a::heap) \<Rightarrow> 'a list option" wher
     let a = New_Arr [xs]; let b = New_Diff_Arr a; Some b 
   }"              
 
+definition case_tuple where
+  "case_tuple t xs =
+     (case t of (c1, c2) \<Rightarrow> do {
+      let t1 = xs[c1:= c2];
+      Some t1
+    })"
+
 (* HNR Array *)
-
-(* method hnr_fallback = 
-  rule hnr_fallback,
-  extract_pre rule: models_id_assn,
-  hypsubst,
-  rule refl *)
-
-find_consts nat
-
 
 synth_definition example_1_arr is [hnr_rule_arr]:     
   "hnr (array_assn xs xsi) (\<hole> :: ?'a Heap) ?\<Gamma>' (example_1 xs)"
@@ -372,6 +371,15 @@ synth_definition create_arr_2_impl is [hnr_rule_arr]:
 synth_definition create_arr_3_impl is [hnr_rule_arr]:
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_arr_3 x y)"
   unfolding create_arr_3_def 
+  by hnr_arr
+
+synth_definition case_tuple_impl is [hnr_rule_arr]:
+  "hnr 
+    (array_assn xs xsi * id_assn t ti) 
+    (\<hole> :: ?'a Heap) 
+    ?\<Gamma>' 
+    (case_tuple t xs)"
+  unfolding case_tuple_def
   by hnr_arr
 
 (* HNR Diff-Array *)

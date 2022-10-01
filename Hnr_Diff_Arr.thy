@@ -7,7 +7,7 @@ named_theorems hnr_rule_diff_arr
 definition master_assn' where
   "master_assn' S = (\<exists>\<^sub>At. master_assn t * \<up>(\<forall> (xs, xsi) \<in> S. t \<turnstile> xs \<sim> xsi))"
 
-lemma hnr_copy_diff_arr [hnr_rule_diff_arr]:
+lemma hnr_pass_diff_arr [hnr_rule_diff_arr]:
   "hnr 
       (master_assn' (insert (xs, xsi) S)) 
       (return xsi) 
@@ -15,21 +15,18 @@ lemma hnr_copy_diff_arr [hnr_rule_diff_arr]:
       (Some xs)"
   using hnr_pass_general.
 
-definition Diff_Arr_From_Arr where
-  "Diff_Arr_From_Arr a = a"
+definition New_Diff_Arr where
+  "New_Diff_Arr a = a"
 
 lemma hnr_from_array [hnr_rule_diff_arr]: 
   "hnr 
     (array_assn xs xsi)
     (Diff_Arr.from_array xsi)
     (\<lambda>xs xsi. master_assn' { (xs, xsi) })
-    (Some (Diff_Arr_From_Arr xs))"
+    (Some (New_Diff_Arr xs))"
   apply(rule hnrI)
-  unfolding master_assn'_def Diff_Arr_From_Arr_def
-  by(sep_auto simp: Let_def)
-
-definition New_Diff_Arr where
-  "New_Diff_Arr a = a"
+  unfolding master_assn'_def New_Diff_Arr_def
+  by sep_auto
 
 lemma hnr_from_list [hnr_rule_diff_arr]: 
   "hnr 
@@ -39,7 +36,7 @@ lemma hnr_from_list [hnr_rule_diff_arr]:
     (Some (New_Diff_Arr xs))"
   apply(rule hnrI)
   unfolding master_assn'_def New_Diff_Arr_def
-  by(sep_auto simp: Let_def)
+  by sep_auto
 
 lemma hnr_lookup [hnr_rule_diff_arr]: "
   hnr
@@ -51,7 +48,7 @@ lemma hnr_lookup [hnr_rule_diff_arr]: "
   apply(rule hnrI)
   apply(sep_auto)
   apply(rule cons_post_rule)
-  apply(rule fi_rule[OF lookup_safe[of _ xs]])
+  apply(rule fi_rule[OF lookup_safe])
   by sep_auto+
 
 lemma hnr_realize: "
@@ -64,10 +61,10 @@ lemma hnr_realize: "
   apply(rule hnrI)
   apply(sep_auto)
   apply(rule cons_post_rule)
-  apply(rule fi_rule[OF realize[of _ xs]])
+  apply(rule fi_rule[OF realize])
   by sep_auto+
 
-lemma hnr_update[hnr_rule_diff_arr]: "
+lemma hnr_update [hnr_rule_diff_arr]: "
   hnr
     (master_assn' (insert (xs, xsi) S) * id_assn i ii * id_assn v vi)
     (Diff_Arr_Safe.update xsi ii vi)
@@ -77,7 +74,7 @@ lemma hnr_update[hnr_rule_diff_arr]: "
   apply(rule hnrI)
   apply(sep_auto)
   apply(rule cons_post_rule)
-  apply(rule fi_rule[OF update_safe[of _ xs]])
+  apply(rule fi_rule[OF update_safe])
   by sep_auto+
 
 lemma hnr_length [hnr_rule_diff_arr]: "
@@ -92,17 +89,6 @@ lemma hnr_length [hnr_rule_diff_arr]: "
   apply(rule cons_post_rule)
   apply(rule fi_rule[OF length])
   by sep_auto+
-
-lemma transfer_diff_arr_rel:
-  assumes 
-    "t \<turnstile> xs \<sim> xsi" 
-    "\<forall>xs xsi. t \<turnstile> xs \<sim> xsi \<longrightarrow> t' \<turnstile> xs \<sim> xsi"
-  shows 
-    "t' \<turnstile> xs \<sim> xsi"
-  using assms by blast
-
-method hnr_transfer_diff_arr_rel = 
-  ((drule(1) transfer_diff_arr_rel)+)?, (thin_tac "\<forall>xs' xsi'. _ \<turnstile> xs' \<sim> xsi' \<longrightarrow> _ \<turnstile> xs' \<sim> xsi'")
 
 definition Si_Tag where
   "Si_Tag x = x"
@@ -143,16 +129,13 @@ experiment
 begin
 
 schematic_goal "{ 1, 2, 3 } = ?S"
-  apply set_inference
-  done
+  by set_inference
 
 schematic_goal "{ 1, 2, 3 } = insert 3 (insert 2 ?S)"
-  apply set_inference
-  done
-
+  by set_inference
+  
 schematic_goal "{ 1, 2, 3 } = insert 1 (insert 2 (insert 3 ?S))"
-  apply set_inference
-  done
+  by set_inference_keep
 
 schematic_goal "{ 1, 2, 3 } = insert 4 (insert 2 (insert 4 ?S))"
   apply set_inference_keep
@@ -172,6 +155,14 @@ method hnr_diff_arr_match_atom = then_else
   \<open>rule master_assn'_cong\<close>
   \<open>set_inference\<close>
   \<open>rule ent_refl\<close>
+
+experiment
+begin
+
+schematic_goal "master_assn' (insert a { b, c }) \<Longrightarrow>\<^sub>A master_assn' (insert b ?S)"
+  by hnr_diff_arr_match_atom
+
+end
 
 lemma kdm_init: 
   assumes
@@ -216,21 +207,24 @@ begin
 
 schematic_goal "master_assn' ({ a, b, c }:: ('a :: heap list \<times> 'a cell ref) set)
    \<Longrightarrow>\<^sub>A master_assn' (?S :: ('a list \<times> 'a cell ref) set)"
-  apply kdm
-  done
+   by kdm
 
 schematic_goal 
-  "\<And> a b c. master_assn' ({ a, b, c }:: ('a :: heap list \<times> 'a cell ref) set)
+  "\<And>a b c. master_assn' ({ a, b, c }:: ('a :: heap list \<times> 'a cell ref) set)
    \<Longrightarrow>\<^sub>A master_assn' (?S :: ('a list \<times> 'a cell ref) set)"
   apply(then_else kdm fail succeed)
   oops
 
 schematic_goal 
-  "\<And> a b c. master_assn' ({ a, b, c }:: ('a :: heap list \<times> 'a cell ref) set)
+  "\<And>a b c. master_assn' ({ a, b, c }:: ('a :: heap list \<times> 'a cell ref) set)
    \<Longrightarrow>\<^sub>A master_assn' (?S a c :: ('a list \<times> 'a cell ref) set)"
-  apply kdm
-  done
-
+  apply(rule kdm_init)
+  apply(rule kdm_keep)
+  apply(rule kdm_drop)
+  apply(rule kdm_keep)
+  apply(rule subset_refl)
+  by kdm_check_not_empty
+ 
 end
   
 method hnr_diff_arr = 
