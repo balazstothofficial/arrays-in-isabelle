@@ -312,217 +312,45 @@ lemma partition_opt_termination: "partition_opt (i, j, xs) = Some (partition i j
   apply(induction i j xs rule: partition.induct)
   apply(rewrite partition_opt_unfold)
   apply(rewrite partition.simps)
-  by(auto simp: Let_def)
+  by(auto simp: Let_def swap_opt_termination)
 
 context
   fixes xsi :: "('a::{linorder,heap}) cell ref"
 begin
 
-find_theorems "hnr"
-
-thm hnr_frame[where F= emp, simplified]
-
-lemma hnr_post_cons:
-  assumes
-    "hnr \<Gamma> fi \<Gamma>' f"
-    "\<And>x xi. \<Gamma>' x xi \<Longrightarrow>\<^sub>A \<Gamma>'' x xi"
-  shows
-    "hnr \<Gamma> fi  \<Gamma>'' f"
-   apply(rule hnrI)
-  using hnrD[OF assms(1)] assms(2)
-  apply(cases f)
-   apply sep_auto+
-  by (meson cons_post_rule fr_refl)
-
-lemma hnr_recursion:
-  assumes 
-    mono_option: "\<And>x. mono_option (\<lambda>r. f r x)"
-  and
-    step: "\<And>r ri x xi F. (\<And>x' xi' F'. hnr (\<Gamma> F' x' xi') (ri xi') (\<Gamma>' F' x' xi') (r x'))
-        \<Longrightarrow> hnr (\<Gamma> F x xi) (fi ri xi) (\<Gamma>' F x xi) (f r x)"
-  and
-    mono_heap: "\<And>x. mono_Heap (\<lambda>r. fi r x)"
-  shows  
-    "hnr (\<Gamma> F x xi) (heap.fixp_fun fi xi) (\<Gamma>' F x xi) (option.fixp_fun f x)"
-proof(induction arbitrary: x xi F rule: ccpo.fixp_induct[OF option.ccpo])
-  case 1
-  then show ?case 
-    apply(rule admissible_fun)
-    by(rule admissible_flat)
-next
-  case 2
-  then show ?case 
-    using mono_option 
-    by(simp add: monotone_def fun_ord_def)
-next
-  case 3
-  then show ?case 
-    by simp
-next
-  case 4
-  then show ?case 
-    apply(subst heap.mono_body_fixp[OF mono_heap])
-    apply(rule step).
-qed
-
-
 synth_definition partition_impl is [hnr_rule_diff_arr]:
   "hnr (master_assn' (insert (xs, xsi) F) * id_assn i ii * id_assn j ji)(\<hole>:: ?'a Heap) ?\<Gamma>' (partition_opt (i, j, xs))" 
   unfolding partition_opt_def
-  apply(rule hnr_frame)
-   apply(rule hnr_recursion[where 
-        xi = "(_, _, _)" and
+  apply(hnr_recursion 
+        "(\<lambda>F p pi. 
+              master_assn' (insert (snd(snd p), snd (snd pi)) F) *
+              id_assn (fst p) (fst pi) * 
+              id_assn (fst (snd p)) (fst (snd pi)))"  
+        "(\<lambda>F p pi r ri. 
+              master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) F)) * 
+              id_assn (snd r) (snd ri) *
+              id_assn (fst p) (fst pi) *
+              id_assn (fst (snd p)) (fst (snd pi)) * 
+              true
+              )" 
+        hnr_diff_arr_match_atom
+        )
+  (* apply(rule hnr_recursion'[where 
         \<Gamma> = "(\<lambda>F (p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref). 
-              master_assn' (insert (snd(snd p), snd (snd pi)) F) * id_assn (fst p) (fst pi) *  id_assn (fst (snd p)) (fst (snd pi)))" and
+              master_assn' (insert (snd(snd p), snd (snd pi)) F) *
+              id_assn (fst p) (fst pi) * 
+              id_assn (fst (snd p)) (fst (snd pi)))" and
          \<Gamma>' = "(\<lambda>F (p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref) (r::'a list \<times> nat) (ri:: 'a cell ref \<times> nat). 
               master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) F)) * 
               id_assn (snd r) (snd ri) *
               id_assn (fst p) (fst pi) *
-              id_assn (fst (snd p)) (fst (snd pi)) * true
+              id_assn (fst (snd p)) (fst (snd pi)) * 
+              true
               )"
-        ]
+       , framed]
       )
-     prefer 4
-     apply(simp only: fst_conv snd_conv)
-  apply(hnr_frame_inference hnr_diff_arr_match_atom)
-    apply hnr_diff_arr      
-  apply(rule hnr_post_cons)
-  unfolding split_def
-   apply hnr_diff_arr
-        apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
-                     apply simp
-                     apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
-       apply simp
-       apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
-   apply(simp only: star_aci insert_commute)
-   apply(rule ent_refl)
-  by hnr_diff_arr      
-
-  find_theorems "insert _ (insert _ _) = _"
-    (* method normalize =
-  rule normI, (simp only: star_aci)?; rule ent_refl *)
-   apply(rule hnr_fallback)
-        apply(extract_pre rule: models_id_assn)
-        apply simp
-       apply hnr_diff_arr
-   apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
-                  apply simp
-                 apply hnr_diff_arr
-   apply(rule hnr_fallback)
-  apply(extract_pre rule: models_id_assn)
-  apply simp
-                      apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
-                      apply(rule hnr_frame)
-                      apply(assumption)
-                      apply(frame_prepare)
-                      apply(frame_try_match hnr_diff_arr_match_atom)
-                      apply(frame_try_match hnr_diff_arr_match_atom)
-
-  thm split_def
-  find_theorems "case_prod" "fst" "snd"
-  sorry
-
-(* 
-rule hnr_frame, assumption, hnr_frame_inference \<open>rule ent_refl\<close>
-
-
-apply(frame_prepare)
-     apply(frame_try_match hnr_diff_arr_match_atom)
-     apply(rule frame_no_match)
-  apply(rule frame_no_match)
-     apply(rule frame_match)
-      apply(rule master_assn'_cong)
-      apply(si_initialize)
-  apply(si_try_match)
-  apply(set_inference)
-  apply(rule ent_refl)
-  apply(hnr_diff_arr_match_atom)
-  apply(frame_try_match hnr_diff_arr_match_atom)
-  apply(hnr_frame_inference_dbg hnr_diff_arr_match_atom)
-
-
-method si_initialize = rule si_initialize, (simp(no_asm) only: si_move_tag)?
-
-method set_inference_keep = si_initialize, ((rule si_finish | si_try_match)+)?
-
-method set_inference = set_inference_keep; fail
-*)
-
-
-definition triple_case ::  "nat \<Rightarrow> nat \<Rightarrow> 'a list \<Rightarrow> 'a list option" where 
-  "triple_case i j xs = do {
-     let c1 = (i, j, xs);
-     case c1 of (ii, ji, xsi) \<Rightarrow> Some xsi
-  }"
-
-definition triple_case_2 ::  "(nat \<times> nat \<times> 'a list) \<Rightarrow> 'a list option" where 
-  "triple_case_2 p = do {
-     case p of (ii, ji, xsi) \<Rightarrow> Some xsi
-  }"
-
-lemma hnr_case_tuple_special [hnr_rule]:
-  assumes 
-    "\<And>i ii j ji xs xsi. 
-      hnr 
-        (master_assn' (insert (snd (snd x), snd (snd xi)) (insert (xs, xsi) F)) *
-            id_assn (fst (snd x)) (fst (snd xi)) *
-            id_assn (fst x) (fst xi) *
-            id_assn i ii *
-            id_assn j ji *
-            \<Gamma>1 *  \<Gamma>2 *  \<Gamma>3 *  \<Gamma>4)
-        (ci ii ji xsi)
-        (\<Gamma>\<^sub>a i ii j ji xs xsi)
-        (c i j xs)"
-    "\<And>i ii j ji xs xsi ri r. Keep_Drop (\<Gamma>\<^sub>a i ii j ji xs xsi r ri) (\<Gamma>\<^sub>a' r ri) (\<Gamma>Drop i ii j ji xs xsi r ri)"
-    "\<And>r ri. Norm (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)"
-  shows
-    "hnr (
-      master_assn' (insert (snd (snd x), snd (snd xi)) F) *
-            (id_assn (fst (snd x)) (fst (snd xi)) *
-            id_assn (fst x) (fst xi) *
-            \<Gamma>1 *  \<Gamma>2 *  \<Gamma>3 *  \<Gamma>4))
-    (case xi of (i, j, xs) \<Rightarrow> ci i j xs) \<Gamma>\<^sub>a'' (case x of (i, j, xs) \<Rightarrow> c i j xs)"
-  apply(hnr_cases_prepare splits: prod.splits)
-  using assms(2, 3)
-  apply -
-  by(hnr_cases_solve_case case_hnr: assms(1) ent_disjI: ent_disjI1)  
-
-lemma hnr_case_tuple_special_2 [hnr_rule]:
-  assumes 
-    "\<And>i ii j ji xs xsi. 
-      hnr 
-        (master_assn' (insert (snd (snd x), snd (snd xi)) (insert (xs, xsi) F)) *
-            id_assn (fst (snd x)) (fst (snd xi)) *
-            id_assn (fst x) (fst xi) *
-            id_assn i ii *
-            id_assn j ji) 
-        (ci ii ji xsi)
-        (\<Gamma>\<^sub>a i ii j ji xs xsi)
-        (c i j xs)"
-    "\<And>i ii j ji xs xsi ri r. Keep_Drop (\<Gamma>\<^sub>a i ii j ji xs xsi r ri) (\<Gamma>\<^sub>a' r ri) (\<Gamma>Drop i ii j ji xs xsi r ri)"
-    "\<And>r ri. Norm (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)"
-  shows
-    "hnr (
-      master_assn' (insert (snd (snd x), snd (snd xi)) F) *
-            id_assn (fst (snd x)) (fst (snd xi)) *
-            id_assn (fst x) (fst xi)) 
-    (case xi of (i, j, xs) \<Rightarrow> ci i j xs) \<Gamma>\<^sub>a'' (case x of (i, j, xs) \<Rightarrow> c i j xs)"
-  apply(hnr_cases_prepare splits: prod.splits)
-  using assms(2, 3)
-  apply -
-  by(hnr_cases_solve_case case_hnr: assms(1) ent_disjI: ent_disjI1)  
-
-synth_definition triple_case_impl is [hnr_rule_diff_arr]: 
-  "hnr (master_assn' (insert (xs, xsi) F) * id_assn i ii * id_assn j ji) (\<hole> :: ?'a Heap) ?\<Gamma>' (triple_case i j xs)"
-  unfolding triple_case_def
-  by hnr_diff_arr
-  (* apply(rule hnr_case_tuple_special[of _ _ "insert (xs, xsi) F" "id_assn i ii" "id_assn j ji" "true" "true" _ _ "\<lambda>_ _ xs. Some xs"]) *)
-
-synth_definition triple_case_2_impl is [hnr_rule_diff_arr]: 
-  "hnr (master_assn' (insert (snd(snd p), snd(snd pi)) F) * id_assn (fst (snd p)) (fst (snd pi)) * id_assn (fst p) (fst pi)) (\<hole> :: ?'a Heap) ?\<Gamma>' (triple_case_2 p)"
-  unfolding triple_case_2_def
-  (* apply(rule hnr_case_tuple_special_2[of p pi F _ _ "\<lambda>j k xs. Some xs"]) *)
+  apply(subst tuple_selector_refl, simp only: fst_conv snd_conv)+
+  apply(hnr_frame_inference hnr_diff_arr_match_atom) *)
   by hnr_diff_arr
 
 end

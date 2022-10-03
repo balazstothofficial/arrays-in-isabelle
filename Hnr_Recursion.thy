@@ -1,8 +1,6 @@
 theory Hnr_Recursion
-  imports Hnr_Base
+  imports Hnr_Base Hnr_Frame Norm
 begin
-
-(* TODO: Automate *)
 
 lemma [simp]: "flat_lub b {} = b"
   by (simp add: flat_lub_def)
@@ -30,17 +28,18 @@ lemma admissible_flat: "ccpo.admissible (flat_lub b) (flat_ord b) (P)"
   apply (rule ccpo.admissibleI)
   by (metis all_not_in_conv flat_interpretation flat_lub_in_chain flat_ord_def partial_function_definitions.lub_upper)
 
+
 lemma hnr_recursion:
   assumes 
     mono_option: "\<And>x. mono_option (\<lambda>r. f r x)"
   and
-    step: "\<And>r ri x xi. (\<And>x' xi'. hnr (\<Gamma> x' xi') (ri xi') (\<Gamma>' x' xi') (r x'))
-        \<Longrightarrow> hnr (\<Gamma> x xi) (fi ri xi) (\<Gamma>' x xi) (f r x)"
+    step: "\<And>r ri x xi F. (\<And>x' xi' F'. hnr (\<Gamma> F' x' xi') (ri xi') (\<Gamma>' F' x' xi') (r x'))
+        \<Longrightarrow> hnr (\<Gamma> F x xi) (fi ri xi) (\<Gamma>' F x xi) (f r x)"
   and
     mono_heap: "\<And>x. mono_Heap (\<lambda>r. fi r x)"
   shows  
-    "hnr (\<Gamma> x xi) (heap.fixp_fun fi xi) (\<Gamma>' x xi) (option.fixp_fun f x)"
-proof(induction arbitrary: x xi rule: ccpo.fixp_induct[OF option.ccpo])
+    "hnr (\<Gamma> F x xi) (heap.fixp_fun fi xi) (\<Gamma>' F x xi) (option.fixp_fun f x)"
+proof(induction arbitrary: x xi F rule: ccpo.fixp_induct[OF option.ccpo])
   case 1
   then show ?case 
     apply(rule admissible_fun)
@@ -61,9 +60,40 @@ next
     apply(rule step).
 qed
 
+lemma hnr_recursion':
+  assumes 
+    mono_option: "\<And>x. mono_option (\<lambda>r. f r x)"
+  and
+    step: "\<And>r ri x xi F. (\<And>x' xi' F'. hnr (\<Gamma> F' x' xi') (ri xi') (\<Gamma>' F' x' xi') (r x'))
+        \<Longrightarrow> hnr (\<Gamma> F x xi) (fi ri xi) (\<Gamma>'' F x xi) (f r x)"
+  and
+    impl: "\<And>F x xi r ri. Norm (\<Gamma>'' F x xi r ri) (\<Gamma>' F x xi r ri)"
+  and
+    mono_heap: "\<And>x. mono_Heap (\<lambda>r. fi r x)"
+  shows  
+    "hnr (\<Gamma> F x xi) (heap.fixp_fun fi xi) (\<Gamma>' F x xi) (option.fixp_fun f x)"
+  apply(rule hnr_recursion[OF mono_option _ mono_heap])
+  apply(rule hnr_post_cons)
+  apply(rule step, assumption)
+  by(rule impl[unfolded Norm_def])
+
+lemma tuple_selector_refl: "fst (a, b) = fst (a, b)" "snd (a, b) = snd (a, b)"
+  by simp_all
+
+(* TODO: Test thoroughly *)
+method hnr_recursion 
+  for \<Gamma>::"'F \<Rightarrow> 'x \<Rightarrow> 'xi \<Rightarrow> assn" and  \<Gamma>'::"'F \<Rightarrow> 'x \<Rightarrow> 'xi \<Rightarrow> 'r \<Rightarrow> 'ri \<Rightarrow> assn"
+  methods frame_match_atom = 
+  rule hnr_recursion'[where \<Gamma>=\<Gamma> and \<Gamma>'=\<Gamma>', framed],
+  ((subst tuple_selector_refl, simp only: fst_conv snd_conv)+)?,
+  hnr_frame_inference frame_match_atom
+
 method_setup partial_function_mono_setup = 
   \<open>Scan.succeed (SIMPLE_METHOD' o Partial_Function.mono_tac)\<close>
 
 method partial_function_mono = partial_function_mono_setup; fail
+
+method hnr_solve_recursive_call methods frame_match_atom = 
+  rule hnr_frame[rotated], assumption, hnr_frame_inference frame_match_atom
 
 end

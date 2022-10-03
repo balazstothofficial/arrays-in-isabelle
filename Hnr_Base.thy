@@ -39,4 +39,15 @@ lemma hnr_pass_general: "hnr (\<Gamma> x xi) (return xi) \<Gamma> (Some x)"
 lemma hnr_pass: "hnr (id_assn x xi) (return xi) id_assn (Some x)"
   using hnr_pass_general.
 
+lemma hnr_post_cons:
+  assumes
+    "hnr \<Gamma> fi \<Gamma>' f"
+    "\<And>x xi. \<Gamma>' x xi \<Longrightarrow>\<^sub>A (\<Gamma>'' x xi)"
+  shows
+    "hnr \<Gamma> fi  \<Gamma>'' f"
+   apply(rule hnrI)
+  using hnrD[OF assms(1)] assms(2)
+  apply(cases f)
+  by(sep_auto simp: cons_post_rule fr_refl)+
+
 end

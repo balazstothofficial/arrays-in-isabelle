@@ -10,6 +10,6 @@ lemma merge_refl: "Merge \<Gamma> \<Gamma> \<Gamma>"
   by simp
 
 (* TODO: Require `normalize` before each merge, then this won't be necessary anymore *)
-method merge = (simp only: star_aci)?, rule merge_refl
+method merge = (simp only: star_aci insert_commute insert_absorb2)?, rule merge_refl
 
 end

@@ -509,6 +509,15 @@ synth_definition create_diff_arr_4_impl is [hnr_rule_diff_arr]:
   unfolding create_diff_arr_4_def 
   by hnr_diff_arr
 
+synth_definition case_tuple_diff_arr_impl is [hnr_rule_arr]:
+  "hnr 
+    (master_assn' (insert (xs, xsi) F) * id_assn t ti) 
+    (\<hole> :: ?'a Heap) 
+    ?\<Gamma>' 
+    (case_tuple t xs)"
+  unfolding case_tuple_def
+  by hnr_diff_arr
+
 (* TODO: Do I need a combined operator? *)
 synth_definition create_diff_arr_arr_impl is [hnr_rule_diff_arr]: 
   "hnr emp (\<hole> :: ?'a Heap) ?\<Gamma>' (create_arr_diff_arr x)"

@@ -22,7 +22,6 @@ lemma models_id_assn:"h \<Turnstile> id_assn x xi \<Longrightarrow> x = xi"
 method hnr_fallback = 
   rule hnr_fallback,
   extract_pre rule: models_id_assn,
-  hypsubst,
-  rule refl
+  ((hypsubst, rule refl) | (simp(no_asm_simp) only: ; fail)) 
 
 end

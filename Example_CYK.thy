@@ -1,5 +1,5 @@
 theory Example_CYK
-  imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" Definition_Utils
+  imports Hnr_Diff_Arr Hnr_Array "HOL-Library.Code_Target_Nat" Definition_Utils Example_Lomuto
 begin
 
 (* TODO: Verify with original implementation from CYK.thy *)
@@ -268,18 +268,23 @@ synth_definition member_impl is [hnr_rule_diff_arr]:
   unfolding member_opt_def
   (* TODO: Could this problem partly be solved by the rule that the terminating branches always appear
      first? *)
-  apply(rule hnr_recursion[where
+   apply(rule hnr_recursion'[where 
+        \<Gamma> = "(\<lambda>F n ni. master_assn' (insert (xs, xsi) F) * id_assn n ni)" and
+      \<Gamma>' = "(\<lambda>F n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)", framed_2])
+  apply((subst aux, simp only: fst_conv snd_conv)+)?
+  apply(hnr_frame_inference hnr_diff_arr_match_atom)
+  (*apply(rule hnr_recursion[where
       \<Gamma> = "(\<lambda>n ni. master_assn' (insert (xs, xsi) F) * id_assn n ni)" and
-      \<Gamma>' = "(\<lambda>n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)"])
+      \<Gamma>' = "(\<lambda>n ni r ri. master_assn' (insert (xs, xsi) F) * id_assn n ni * id_assn r ri)"])*)
   by hnr_diff_arr
 
-synth_definition member_impl_arr is [hnr_rule_arr]:
+(*synth_definition member_impl_arr is [hnr_rule_arr]:
   "hnr (array_assn xs xsi' * id_assn n ni) (\<hole>:: ?'a Heap) ?\<Gamma>' (member_opt x xs n)"
   unfolding member_opt_def
   apply(rule hnr_recursion[where
       \<Gamma> = "(\<lambda>n ni. array_assn xs xsi' * id_assn n ni)" and
       \<Gamma>' = "(\<lambda>n ni r ri. array_assn xs xsi' * id_assn n ni * id_assn r ri)"])
-  by hnr_arr
+  by hnr_arr*)
 
 lemma helper: "a = ai \<Longrightarrow> as = asi \<Longrightarrow> a # as = ai # asi"
   by auto
@@ -291,6 +296,19 @@ synth_definition match_prods_impl is [hnr_rule_diff_arr]:
        (\<hole>:: ?'a Heap) ?\<Gamma>'
        (match_prods_opt ls rs ps)"
   unfolding match_prods_opt_def
+   apply(rule hnr_recursion'[where 
+       \<Gamma> = "(\<lambda>F ps psi. master_assn' (insert (rs, rsi) F) * 
+        master_assn' (insert (ls, lsi) F') * 
+        id_assn ps psi)" and
+      \<Gamma>' = "(\<lambda>F ps psi ps' psi'. master_assn' (insert (rs, rsi) F) * 
+        master_assn' (insert (ls, lsi) F') * 
+        id_assn ps psi *
+        id_assn ps' psi')", framed_2])
+  apply(subst aux, simp only: fst_conv snd_conv)+
+      apply(hnr_frame_inference hnr_diff_arr_match_atom)
+  apply hnr_diff_arr
+
+
    apply(rule hnr_recursion[where
       \<Gamma> = "(\<lambda>ps psi. master_assn' (insert (rs, rsi) F) * 
         master_assn' (insert (ls, lsi) F') * 

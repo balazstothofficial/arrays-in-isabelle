@@ -73,7 +73,7 @@ method hnr_cases_solve_case uses case_hnr ent_disjI =
     (sep_auto simp: Keep_Drop_def Norm_def id_rel_def)+,
     meson ent_disjI ent_refl_true ent_trans ent_true_drop(1)
 
-lemma hnr_case_tuple [hnr_rule]:
+lemma hnr_case_tuple:
   assumes 
     "\<And>a ai b bi. 
       hnr 
@@ -85,23 +85,6 @@ lemma hnr_case_tuple [hnr_rule]:
     "\<And>r ri. Norm (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)"
   shows
     "hnr (\<Gamma> * id_assn x xi) (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>\<^sub>a'' (case x of (a, b) \<Rightarrow> c a b)"
-  apply(hnr_cases_prepare splits: prod.splits)
-  using assms(2, 3)
-  apply -
-  by(hnr_cases_solve_case case_hnr: assms(1) ent_disjI: ent_disjI1)
-
-lemma hnr_case_tuple_2 [hnr_rule]:
-  assumes 
-    "\<And>a ai b bi. 
-      hnr 
-        (\<Gamma> * id_assn x xi * id_assn a ai * id_assn b bi) 
-        (ci ai bi)
-        (\<Gamma>\<^sub>a a ai b bi)
-        (c a b)"
-    "\<And>a ai b bi ri r. Keep_Drop (\<Gamma>\<^sub>a a ai b bi r ri) (\<Gamma>\<^sub>a' r ri) (\<Gamma>Drop a ai b bi r ri)"
-    "\<And>r ri. Norm (\<Gamma>\<^sub>a' r ri) (\<Gamma>\<^sub>a'' r ri)"
-  shows
-    "hnr (id_assn x xi * \<Gamma>) (case xi of (ai, bi) \<Rightarrow> ci ai bi) \<Gamma>\<^sub>a'' (case x of (a, b) \<Rightarrow> c a b)"
   apply(hnr_cases_prepare splits: prod.splits)
   using assms(2, 3)
   apply -

@@ -10,6 +10,6 @@ lemma normI: "\<Gamma> \<Longrightarrow>\<^sub>A \<Gamma>' \<Longrightarrow> Nor
   by simp
 
 method normalize =
-  rule normI, (simp only: star_aci)?; rule ent_refl
+  rule normI, (simp only: star_aci insert_commute insert_absorb2)?; rule ent_refl
              
 end

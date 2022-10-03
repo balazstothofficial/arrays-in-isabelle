@@ -1,21 +1,21 @@
 theory Hnr_Frame
   imports Hnr_Base
-begin  
+begin
 
 lemma hnr_frame:
   assumes
-    "hnr \<Gamma> fi \<Gamma>' f"
     "\<Gamma>\<^sub>P \<Longrightarrow>\<^sub>A \<Gamma> * F"
+    "hnr \<Gamma> fi \<Gamma>' f"
   shows
     "hnr \<Gamma>\<^sub>P fi (\<lambda>r ri. \<Gamma>' r ri * F) f"
   apply(rule hnrI)
-  using hnrD[OF assms(1)] assms(2) fi_rule
+  using hnrD[OF assms(2)] assms(1) fi_rule
   apply(cases f)
   apply sep_auto+
   by fastforce
- 
+
 attribute_setup framed =
-    \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [thm, asm_rl]))\<close>
+    \<open>Scan.succeed (Thm.rule_attribute [] (fn _ => fn thm => @{thm hnr_frame} OF [asm_rl, thm]))\<close>
     \<open>Add frame to hnr rule\<close>
 
 lemma frame_prepare:
@@ -29,7 +29,12 @@ lemma frame_prepare:
 lemma split_id_assn: "id_assn p pi = id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi)"
   by(cases p)(auto simp: id_rel_def)
 
-method frame_norm_assoc = (simp only: mult.left_assoc[where 'a=assn] split_id_assn)?
+method frame_norm_assoc = (simp only: 
+    mult.left_assoc[where 'a=assn] 
+    split_id_assn 
+    fst_conv 
+    snd_conv
+    )?
 
 method frame_prepare = rule frame_prepare, frame_norm_assoc
 
@@ -78,7 +83,7 @@ method frame_done = simp only: assn_one_left mult_1_right[where 'a=assn], rule e
 
 method hnr_frame_inference methods match_atom =
   frame_prepare, (frame_try_match match_atom)+, frame_done
-
+          
 method hnr_frame_inference_dbg methods match_atom = 
   frame_prepare, ((frame_try_match match_atom)+)?, frame_done?
 
