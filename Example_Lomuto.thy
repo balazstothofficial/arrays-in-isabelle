@@ -15,10 +15,8 @@ fun partition :: "nat \<Rightarrow> nat \<Rightarrow> ('a::linorder) list \<Righ
 
 declare partition.simps[simp del]
 
-
 abbreviation partition' where
   "partition' xs \<equiv> partition (length xs) (length xs) xs"
-
 
 definition inv :: "nat \<Rightarrow> nat \<Rightarrow> ('a::linorder) list \<Rightarrow> bool" where
   "inv i j xs \<equiv> 
@@ -38,7 +36,7 @@ lemma mset_swap' [simp]:"i < length xs \<Longrightarrow> j < length xs \<Longrig
   unfolding swap_def
   using mset_swap by auto
 
-lemma [simp]: "length (swap i j xs) = length xs"
+lemma swap_length [simp]: "length (swap i j xs) = length xs"
   unfolding swap_def
   by auto
 
@@ -51,9 +49,8 @@ lemma swap_pivot_2: "0 < i \<Longrightarrow> 0 < j \<Longrightarrow> swap i j (p
   apply(cases i; cases j)
   by auto
 
-lemma swap_pivot_3: "1 < j \<Longrightarrow> j \<le> i \<Longrightarrow> swap (i - Suc 0) (j - Suc 0) xs ! 0 = xs ! 0"
+lemma swap_nth_noop: "n < i \<Longrightarrow> n < j \<Longrightarrow> swap i j xs ! n = xs ! n"
   unfolding swap_def
-  apply(cases i; cases j)
   by auto
 
 lemma drop_swap: "n \<le> i \<Longrightarrow> n \<le> j \<Longrightarrow> drop n (swap i j xs) = swap (i - n) (j - n) (drop n xs)"
@@ -78,9 +75,6 @@ lemma drop_swap'_2: "\<lbrakk>
   using drop_swap[of "j - 1" "i - 1" "j - 1" xs]
   by auto
 
-lemma test_1: "take n (xs[n := x]) = take n xs"
-  by simp
-
 lemma test_2: "n < length xs \<Longrightarrow> drop n xs = drop n xs ! 0 # drop (Suc n) xs"
   apply auto
   by (simp add: Cons_nth_drop_Suc)
@@ -99,7 +93,7 @@ lemma test_4: "\<lbrakk>Suc 0 < j; i \<le> length xs; j \<le> i\<rbrakk>
    \<Longrightarrow> take (i - j) (drop (j - Suc 0) (swap (i - Suc 0) (j - Suc 0) xs)) = take (i -j) (xs ! (i - 1) # drop j xs)" 
   unfolding swap_def
   apply auto
-  by (smt (z3) One_nat_def Suc_le_mono diff_Suc_Suc diff_self_eq_0 drop_update_swap dual_order.strict_trans1 le_add_diff_inverse less_or_eq_imp_le plus_1_eq_Suc take_update test_1 test_3)
+  by (smt (z3) One_nat_def Suc_le_mono diff_Suc_Suc diff_self_eq_0 drop_update_swap dual_order.strict_trans1 le_add_diff_inverse less_or_eq_imp_le plus_1_eq_Suc take_update take_update_cancel test_3)
 
 lemma test_5_1: "\<lbrakk>l \<in>\<^sub>L take (i - j) (xs ! (i - Suc 0) # drop j xs); l \<noteq> xs ! (i - Suc 0)\<rbrakk> \<Longrightarrow> l \<in>\<^sub>L take (i - j - 1) (drop j xs)" 
   apply auto 
@@ -163,14 +157,6 @@ lemma aux_1_2: "\<lbrakk>
   using test_6[of j i xs]
   by simp
 
-lemma aux_1:
-  assumes "inv i j xs" "1 < j" "xs ! 0 < xs ! (j - Suc 0)"
-  shows "inv (i - Suc 0) (j - Suc 0) (swap (i - Suc 0) (j - Suc 0) xs)"
-  using assms
-  unfolding inv_def Let_def
-  apply(auto simp: swap_pivot_3)
-  by(auto simp: aux_1_1 aux_1_2)
-
 lemma aux_2_1:  "\<lbrakk>l \<in>\<^sub>L take n xs\<rbrakk> 
   \<Longrightarrow>  l \<in>\<^sub>L take (Suc n) xs"
   apply(induction xs)
@@ -179,19 +165,6 @@ lemma aux_2_1:  "\<lbrakk>l \<in>\<^sub>L take n xs\<rbrakk>
 
 lemma aux_2_2: "0 < j \<Longrightarrow> j \<le> length xs \<Longrightarrow> drop (j - Suc 0) xs =  xs ! (j - Suc 0) # drop j xs"
   by (metis Cons_nth_drop_Suc Suc_pred nz_le_conv_less)
-
-lemma aux_2:
-  assumes "inv i j xs" "1 < j" "\<not> xs ! 0 < xs ! (j - Suc 0)"
-  shows "inv i (j - Suc 0) xs"
-  using assms
-  unfolding inv_def Let_def
-  apply auto
-  subgoal for l
-    apply(cases "l = xs ! (j - Suc 0)")
-     apply(auto simp: aux_2_2)
-    using take_Suc_Cons[of "i - j" "xs ! (j - Suc 0)"  "drop j xs"]
-    by auto
-  done
 
 lemma aux_3_1: "\<lbrakk>\<not> Suc 0 < j; xs \<noteq> []; 0 < i; i \<le> length xs; l \<in>\<^sub>L (take (i - Suc 0) xs)[0 := xs ! (i - Suc 0)]\<rbrakk>
    \<Longrightarrow> l \<in>\<^sub>L take (i - j) (drop j xs)" 
@@ -211,8 +184,42 @@ lemma aux_3_2: "\<lbrakk>
     by (metis Cons_nth_drop_Suc drop_0 length_pos_if_in_set set_ConsD)
   by (smt (verit, best) Nat.diff_diff_eq One_nat_def Suc_diff_Suc diff_diff_cancel drop_update_swap le_add_diff_inverse less_eq_Suc_le order_le_less plus_1_eq_Suc set_ConsD test_3_1)
 
-lemma aux_3: "\<not> Suc 0 < j \<Longrightarrow> inv i j xs \<Longrightarrow> is_valid_partition (swap (i - Suc 0) 0 xs) (i - Suc 0)"
-  unfolding inv_def Let_def is_valid_partition_def
+lemma partition: "inv i j xs \<Longrightarrow> partition i j xs = (ys, m) \<Longrightarrow> is_valid_partition ys m"
+proof(induction i j xs arbitrary: ys m rule: partition.induct)
+  case (1 i j xs)
+  then have unfolded_partition: "(
+      if Suc 0 < j
+      then if xs ! 0 < xs ! (j - 1) 
+           then partition (i - 1) (j - 1) (swap (i - 1) (j - 1) xs)
+           else partition i (j - 1) xs
+      else (swap (i - 1) 0 xs, i - 1)) = (ys, m)"
+    by(simp add: partition.simps)
+
+  have recursive_branch_1: 
+    "\<lbrakk>1 < j; xs ! 0 < xs ! (j - Suc 0)\<rbrakk>
+        \<Longrightarrow>  inv (i - Suc 0) (j - Suc 0) (swap (i - Suc 0) (j - Suc 0) xs)"
+  using "1.prems"
+  unfolding inv_def Let_def
+  apply(auto simp: swap_nth_noop)
+  by(auto simp: aux_1_1 aux_1_2)
+
+  have recursive_branch_2: 
+    "\<lbrakk>1 < j; \<not> xs ! 0 < xs ! (j - Suc 0)\<rbrakk> 
+        \<Longrightarrow> inv i (j - Suc 0) xs"
+  using "1.prems"
+   unfolding inv_def Let_def
+  apply auto
+  subgoal for l
+    apply(cases "l = xs ! (j - Suc 0)")
+     apply(auto simp: aux_2_2)
+    using take_Suc_Cons[of "i - j" "xs ! (j - Suc 0)"  "drop j xs"]
+    by auto
+  done
+
+  have terminating_branch: 
+     "\<not> Suc 0 < j \<Longrightarrow> is_valid_partition (swap (i - Suc 0) 0 xs) (i - Suc 0)"
+     using "1.prems"
+    unfolding inv_def Let_def is_valid_partition_def
   apply(auto)
   unfolding swap_def
   subgoal for l h
@@ -221,13 +228,10 @@ lemma aux_3: "\<not> Suc 0 < j \<Longrightarrow> inv i j xs \<Longrightarrow> is
   by (meson order_less_imp_le order_trans)
   done
 
-
-lemma partition: "inv i j xs \<Longrightarrow> partition i j xs = (ys, m) \<Longrightarrow> is_valid_partition ys m"
-  apply(induction i j xs arbitrary: ys m rule: partition.induct)
-  subgoal for i j xs ys m
-    apply(rewrite in "partition i j xs = _" in asm partition.simps)
-    by(auto simp: aux_1 aux_2 aux_3 split: if_splits)
-  done
+  from unfolded_partition 1 recursive_branch_1 recursive_branch_2 terminating_branch 
+  show ?case
+    by(auto split: if_splits)
+qed
 
 lemma inv: "inv (length (p#xs)) (length (p#xs)) (p#xs)"
   unfolding inv_def
@@ -268,7 +272,8 @@ definition partition_opt :: "nat \<times> nat \<times> ('a::linorder) list \<Rig
       let c1 = 1;
       let c2 = c1 < j;
       if c2 then do {
-        let c3 = xs ! 0;
+        let c99 = 0;
+        let c3 = xs ! c99;
         let c4 = 1;
         let c5 = j - c4;
         let c6 = xs ! c5;
@@ -278,7 +283,7 @@ definition partition_opt :: "nat \<times> nat \<times> ('a::linorder) list \<Rig
            let c9 = i - c8;
            let c10 = 1;
            let c11 = j - c10;
-           let c12 = swap c9 c11 xs;
+           c12 \<leftarrow> swap_opt c9 c11 xs;
            let c13 = (c9, c11, c12);
            partition_opt c13
         }
@@ -293,7 +298,7 @@ definition partition_opt :: "nat \<times> nat \<times> ('a::linorder) list \<Rig
         let c17 = 1;
         let c18 = i - c17;
         let c19 = 0;
-        let c20 = swap c18 c19 xs;
+        c20 \<leftarrow> swap_opt c18 c19 xs;
         Some (c20, c18)
       }
     }
@@ -305,31 +310,145 @@ schematic_goal partition_opt_unfold: "partition_opt p \<equiv> ?v"
 
 lemma partition_opt_termination: "partition_opt (i, j, xs) = Some (partition i j xs)"
   apply(induction i j xs rule: partition.induct)
-  apply(simp(no_asm) add: partition_opt_unfold) (* partition.simps) *)
-  sorry
+  apply(rewrite partition_opt_unfold)
+  apply(rewrite partition.simps)
+  by(auto simp: Let_def)
 
 context
   fixes xsi :: "('a::{linorder,heap}) cell ref"
 begin
 
+find_theorems "hnr"
+
+thm hnr_frame[where F= emp, simplified]
+
+lemma hnr_post_cons:
+  assumes
+    "hnr \<Gamma> fi \<Gamma>' f"
+    "\<And>x xi. \<Gamma>' x xi \<Longrightarrow>\<^sub>A \<Gamma>'' x xi"
+  shows
+    "hnr \<Gamma> fi  \<Gamma>'' f"
+   apply(rule hnrI)
+  using hnrD[OF assms(1)] assms(2)
+  apply(cases f)
+   apply sep_auto+
+  by (meson cons_post_rule fr_refl)
+
+lemma hnr_recursion:
+  assumes 
+    mono_option: "\<And>x. mono_option (\<lambda>r. f r x)"
+  and
+    step: "\<And>r ri x xi F. (\<And>x' xi' F'. hnr (\<Gamma> F' x' xi') (ri xi') (\<Gamma>' F' x' xi') (r x'))
+        \<Longrightarrow> hnr (\<Gamma> F x xi) (fi ri xi) (\<Gamma>' F x xi) (f r x)"
+  and
+    mono_heap: "\<And>x. mono_Heap (\<lambda>r. fi r x)"
+  shows  
+    "hnr (\<Gamma> F x xi) (heap.fixp_fun fi xi) (\<Gamma>' F x xi) (option.fixp_fun f x)"
+proof(induction arbitrary: x xi F rule: ccpo.fixp_induct[OF option.ccpo])
+  case 1
+  then show ?case 
+    apply(rule admissible_fun)
+    by(rule admissible_flat)
+next
+  case 2
+  then show ?case 
+    using mono_option 
+    by(simp add: monotone_def fun_ord_def)
+next
+  case 3
+  then show ?case 
+    by simp
+next
+  case 4
+  then show ?case 
+    apply(subst heap.mono_body_fixp[OF mono_heap])
+    apply(rule step).
+qed
+
+
 synth_definition partition_impl is [hnr_rule_diff_arr]:
   "hnr (master_assn' (insert (xs, xsi) F) * id_assn i ii * id_assn j ji)(\<hole>:: ?'a Heap) ?\<Gamma>' (partition_opt (i, j, xs))" 
   unfolding partition_opt_def
-  apply(rule hnr_recursion[where 
-        \<Gamma> = "(\<lambda>(p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref). 
-              master_assn' (insert (xs, xsi) F) * id_assn i ii * id_assn j ji)" and
-         \<Gamma>' = "(\<lambda>(p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref) (r::'a list \<times> nat) (ri:: 'a cell ref \<times> nat). 
-              master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) (insert (xs, xsi) F))) * 
-              id_assn i ii * 
-              id_assn j ji * 
+  apply(rule hnr_frame)
+   apply(rule hnr_recursion[where 
+        xi = "(_, _, _)" and
+        \<Gamma> = "(\<lambda>F (p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref). 
+              master_assn' (insert (snd(snd p), snd (snd pi)) F) * id_assn (fst p) (fst pi) *  id_assn (fst (snd p)) (fst (snd pi)))" and
+         \<Gamma>' = "(\<lambda>F (p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref) (r::'a list \<times> nat) (ri:: 'a cell ref \<times> nat). 
+              master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) F)) * 
               id_assn (snd r) (snd ri) *
               id_assn (fst p) (fst pi) *
-              id_assn (fst (snd p)) (fst (snd pi))
+              id_assn (fst (snd p)) (fst (snd pi)) * true
               )"
         ]
       )
-  apply hnr_diff_arr
+     prefer 4
+     apply(simp only: fst_conv snd_conv)
+  apply(hnr_frame_inference hnr_diff_arr_match_atom)
+    apply hnr_diff_arr      
+  apply(rule hnr_post_cons)
+  unfolding split_def
+   apply hnr_diff_arr
+        apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
+                     apply simp
+                     apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
+       apply simp
+       apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
+   apply(simp only: star_aci insert_commute)
+   apply(rule ent_refl)
+  by hnr_diff_arr      
+
+  find_theorems "insert _ (insert _ _) = _"
+    (* method normalize =
+  rule normI, (simp only: star_aci)?; rule ent_refl *)
+   apply(rule hnr_fallback)
+        apply(extract_pre rule: models_id_assn)
+        apply simp
+       apply hnr_diff_arr
+   apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
+                  apply simp
+                 apply hnr_diff_arr
+   apply(rule hnr_fallback)
+  apply(extract_pre rule: models_id_assn)
+  apply simp
+                      apply(hnr_diff_arr | rule hnr_fallback; extract_pre rule: models_id_assn; simp; fail)+
+                      apply(rule hnr_frame)
+                      apply(assumption)
+                      apply(frame_prepare)
+                      apply(frame_try_match hnr_diff_arr_match_atom)
+                      apply(frame_try_match hnr_diff_arr_match_atom)
+
+  thm split_def
+  find_theorems "case_prod" "fst" "snd"
   sorry
+
+(* 
+rule hnr_frame, assumption, hnr_frame_inference \<open>rule ent_refl\<close>
+
+
+apply(frame_prepare)
+     apply(frame_try_match hnr_diff_arr_match_atom)
+     apply(rule frame_no_match)
+  apply(rule frame_no_match)
+     apply(rule frame_match)
+      apply(rule master_assn'_cong)
+      apply(si_initialize)
+  apply(si_try_match)
+  apply(set_inference)
+  apply(rule ent_refl)
+  apply(hnr_diff_arr_match_atom)
+  apply(frame_try_match hnr_diff_arr_match_atom)
+  apply(hnr_frame_inference_dbg hnr_diff_arr_match_atom)
+
+
+method si_initialize = rule si_initialize, (simp(no_asm) only: si_move_tag)?
+
+method set_inference_keep = si_initialize, ((rule si_finish | si_try_match)+)?
+
+method set_inference = set_inference_keep; fail
+*)
+
 
 definition triple_case ::  "nat \<Rightarrow> nat \<Rightarrow> 'a list \<Rightarrow> 'a list option" where 
   "triple_case i j xs = do {

@@ -218,12 +218,7 @@ schematic_goal
 schematic_goal 
   "\<And>a b c. master_assn' ({ a, b, c }:: ('a :: heap list \<times> 'a cell ref) set)
    \<Longrightarrow>\<^sub>A master_assn' (?S a c :: ('a list \<times> 'a cell ref) set)"
-  apply(rule kdm_init)
-  apply(rule kdm_keep)
-  apply(rule kdm_drop)
-  apply(rule kdm_keep)
-  apply(rule subset_refl)
-  by kdm_check_not_empty
+  by kdm
  
 end
   
