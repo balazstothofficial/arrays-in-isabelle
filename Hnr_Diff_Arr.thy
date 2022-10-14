@@ -223,9 +223,13 @@ schematic_goal
 end
   
 method hnr_diff_arr = 
-  hnr hnr_diff_arr_match_atom diff_arr_kdm rule_set: hnr_rule_diff_arr
+  hnr hnr_diff_arr_match_atom diff_arr_kdm 
+    rule_set: hnr_rule_diff_arr
+    normalization_rules: insert_commute insert_absorb2
 
 method hnr_step_diff_arr = 
-  hnr_step hnr_diff_arr_match_atom diff_arr_kdm rule_set: hnr_rule_diff_arr
+  hnr_step hnr_diff_arr_match_atom diff_arr_kdm 
+    rule_set: hnr_rule_diff_arr
+    normalization_rules: insert_commute insert_absorb2
 
 end

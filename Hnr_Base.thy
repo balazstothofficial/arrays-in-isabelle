@@ -27,6 +27,17 @@ abbreviation id_assn where "id_assn a c \<equiv> \<up>(id_rel a c)"
 
 abbreviation array_assn where "array_assn xs xsi \<equiv> xsi \<mapsto>\<^sub>a xs"
 
+lemma hnr_post_cons:
+  assumes
+    "hnr \<Gamma> fi \<Gamma>' f"
+    "\<And>x xi. \<Gamma>' x xi \<Longrightarrow>\<^sub>A (\<Gamma>'' x xi)"
+  shows
+    "hnr \<Gamma> fi  \<Gamma>'' f"
+   apply(rule hnrI)
+  using hnrD[OF assms(1)] assms(2)
+  apply(cases f)
+  by(sep_auto simp: cons_post_rule fr_refl)+
+
 lemma hnr_const: "hnr \<Gamma> (return x) (\<lambda>r ri. \<Gamma> * id_assn r ri) (Some x)"
   unfolding id_rel_def
   apply(rule hnrI)
@@ -38,16 +49,5 @@ lemma hnr_pass_general: "hnr (\<Gamma> x xi) (return xi) \<Gamma> (Some x)"
 
 lemma hnr_pass: "hnr (id_assn x xi) (return xi) id_assn (Some x)"
   using hnr_pass_general.
-
-lemma hnr_post_cons:
-  assumes
-    "hnr \<Gamma> fi \<Gamma>' f"
-    "\<And>x xi. \<Gamma>' x xi \<Longrightarrow>\<^sub>A (\<Gamma>'' x xi)"
-  shows
-    "hnr \<Gamma> fi  \<Gamma>'' f"
-   apply(rule hnrI)
-  using hnrD[OF assms(1)] assms(2)
-  apply(cases f)
-  by(sep_auto simp: cons_post_rule fr_refl)+
 
 end

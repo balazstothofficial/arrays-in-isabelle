@@ -12,7 +12,6 @@ fun partition :: "nat \<Rightarrow> nat \<Rightarrow> ('a::linorder) list \<Righ
        else partition i (j - 1) xs)
     else (swap (i - 1) 0 xs, i - 1)
   )"
-
 declare partition.simps[simp del]
 
 abbreviation partition' where
@@ -49,7 +48,7 @@ lemma swap_pivot_2: "0 < i \<Longrightarrow> 0 < j \<Longrightarrow> swap i j (p
   apply(cases i; cases j)
   by auto
 
-lemma swap_nth_noop: "n < i \<Longrightarrow> n < j \<Longrightarrow> swap i j xs ! n = xs ! n"
+lemma swap_nth_absorb: "n < i \<Longrightarrow> n < j \<Longrightarrow> swap i j xs ! n = xs ! n"
   unfolding swap_def
   by auto
 
@@ -200,7 +199,7 @@ proof(induction i j xs arbitrary: ys m rule: partition.induct)
         \<Longrightarrow>  inv (i - Suc 0) (j - Suc 0) (swap (i - Suc 0) (j - Suc 0) xs)"
   using "1.prems"
   unfolding inv_def Let_def
-  apply(auto simp: swap_nth_noop)
+  apply(auto simp: swap_nth_absorb)
   by(auto simp: aux_1_1 aux_1_2)
 
   have recursive_branch_2: 
@@ -319,38 +318,26 @@ context
 begin
 
 synth_definition partition_impl is [hnr_rule_diff_arr]:
-  "hnr (master_assn' (insert (xs, xsi) F) * id_assn i ii * id_assn j ji)(\<hole>:: ?'a Heap) ?\<Gamma>' (partition_opt (i, j, xs))" 
+  "hnr 
+    (master_assn' (insert (xs, xsi) F) * id_assn i ii * id_assn j ji)
+    (\<hole>:: ?'a Heap) 
+    ?\<Gamma>' 
+    (partition_opt (i, j, xs))" 
   unfolding partition_opt_def
   apply(hnr_recursion 
-        "(\<lambda>F p pi. 
-              master_assn' (insert (snd(snd p), snd (snd pi)) F) *
-              id_assn (fst p) (fst pi) * 
-              id_assn (fst (snd p)) (fst (snd pi)))"  
-        "(\<lambda>F p pi r ri. 
-              master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) F)) * 
-              id_assn (snd r) (snd ri) *
-              id_assn (fst p) (fst pi) *
-              id_assn (fst (snd p)) (fst (snd pi)) * 
-              true
-              )" 
-        hnr_diff_arr_match_atom
+          "(\<lambda>F p pi. 
+                master_assn' (insert (snd(snd p), snd (snd pi)) F) *
+                id_assn (fst p) (fst pi) * 
+                id_assn (fst (snd p)) (fst (snd pi)))"  
+          "(\<lambda>F p pi r ri. 
+                master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) F)) * 
+                id_assn (snd r) (snd ri) *
+                id_assn (fst p) (fst pi) *
+                id_assn (fst (snd p)) (fst (snd pi)) * 
+                true
+                )" 
+          hnr_diff_arr_match_atom
         )
-  (* apply(rule hnr_recursion'[where 
-        \<Gamma> = "(\<lambda>F (p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref). 
-              master_assn' (insert (snd(snd p), snd (snd pi)) F) *
-              id_assn (fst p) (fst pi) * 
-              id_assn (fst (snd p)) (fst (snd pi)))" and
-         \<Gamma>' = "(\<lambda>F (p::nat \<times> nat \<times> 'a list) (pi:: nat \<times> nat \<times> 'a cell ref) (r::'a list \<times> nat) (ri:: 'a cell ref \<times> nat). 
-              master_assn' (insert (snd(snd p), snd (snd pi)) (insert (fst r, fst ri) F)) * 
-              id_assn (snd r) (snd ri) *
-              id_assn (fst p) (fst pi) *
-              id_assn (fst (snd p)) (fst (snd pi)) * 
-              true
-              )"
-       , framed]
-      )
-  apply(subst tuple_selector_refl, simp only: fst_conv snd_conv)+
-  apply(hnr_frame_inference hnr_diff_arr_match_atom) *)
   by hnr_diff_arr
 
 end

@@ -1,5 +1,5 @@
-theory Hnr_Frame
-  imports Hnr_Base
+theory Hnr_Frame 
+  imports Hnr_Base 
 begin
 
 lemma hnr_frame:
@@ -29,12 +29,8 @@ lemma frame_prepare:
 lemma split_id_assn: "id_assn p pi = id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi)"
   by(cases p)(auto simp: id_rel_def)
 
-method frame_norm_assoc = (simp only: 
-    mult.left_assoc[where 'a=assn] 
-    split_id_assn 
-    fst_conv 
-    snd_conv
-    )?
+method frame_norm_assoc = 
+  (simp only: mult.left_assoc[where 'a=assn] split_id_assn fst_conv snd_conv)?
 
 method frame_prepare = rule frame_prepare, frame_norm_assoc
 
@@ -84,44 +80,4 @@ method frame_done = simp only: assn_one_left mult_1_right[where 'a=assn], rule e
 method hnr_frame_inference methods match_atom =
   frame_prepare, (frame_try_match match_atom)+, frame_done
           
-method hnr_frame_inference_dbg methods match_atom = 
-  frame_prepare, ((frame_try_match match_atom)+)?, frame_done?
-
-experiment
-begin
-
-schematic_goal 
-  fixes a b c d::assn
-  shows "a * b * c * d \<Longrightarrow>\<^sub>A a * c * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-schematic_goal 
-  fixes a b c d::assn
-  shows "a * b * c * d \<Longrightarrow>\<^sub>A emp * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-schematic_goal 
-  fixes a b c d::assn
-  shows "emp \<Longrightarrow>\<^sub>A emp * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-schematic_goal 
-  fixes a b c d::assn
-  shows "a * b * c * d \<Longrightarrow>\<^sub>A b * d * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-schematic_goal 
-  shows "a * \<up>(b) * c * d \<Longrightarrow>\<^sub>A \<up>(b) * d * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-schematic_goal 
-  shows "id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi) \<Longrightarrow>\<^sub>A id_assn p pi * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-schematic_goal 
-  shows "id_assn p pi * a \<Longrightarrow>\<^sub>A id_assn (fst p) (fst pi) * id_assn (snd p) (snd pi) * ?F"
-  by(hnr_frame_inference \<open>rule ent_refl\<close>)
-
-end
-
 end
